@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>منصة بيانات المزارع</title>
+    <meta name="description" content="بيانات مزارع العلا المنزوعة: الخرائط، الآبار، العدادات، إنتاج التمور" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232E7D32' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M7 20h10'/><path d='M10 20c5.5-2.5.8-6.4 3-10'/><path d='M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.8-.3-1.2-.6-2.3-1.9-3-4.2 2.8-.5 4.4 0 5.5.8z'/><path d='M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.3 1.7-4.6-2.7.1-4 1-4.9 2z'/></svg>" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+    <link rel="stylesheet" href="style.css" />
+    <script>
+      try { var t = localStorage.getItem("theme"); if (t) document.documentElement.setAttribute("data-theme", t); } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div class="shell">
+      <!-- Icon rail, same pattern as the Agriculture Center platform (72px, white, active item gray-100) -->
+      <aside class="rail" id="rail" hidden>
+        <nav id="nav">
+          <a href="#/" data-ico="dashboard" title="لوحة المؤشرات" aria-label="لوحة المؤشرات"></a>
+          <a href="#/map" data-ico="map" title="الخريطة" aria-label="الخريطة"></a>
+          <a href="#/farms" data-ico="sprout" title="المزارع" aria-label="المزارع"></a>
+          <a href="#/wells" data-ico="droplet" title="الآبار" aria-label="الآبار"></a>
+          <a href="#/meters" data-ico="zap" title="العدادات" aria-label="العدادات"></a>
+          <a href="#/sources" data-ico="database" title="مصادر البيانات" aria-label="مصادر البيانات"></a>
+        </nav>
+        <button type="button" id="logout" data-ico="logout" title="تسجيل الخروج" aria-label="تسجيل الخروج"></button>
+      </aside>
+      <div class="main-col">
+        <header class="topbar">
+          <div class="tb-start">
+            <span class="tb-ico" data-ico="sprout"></span>
+            <div class="tb-title">
+              <h2 id="tb-page">منصة بيانات المزارع</h2>
+              <p><span>بيانات المزارع المنزوعة — العلا</span><span class="tb-date" id="tb-date"></span></p>
+            </div>
+          </div>
+          <div class="tb-end" id="tb-end" hidden>
+            <form id="gsearch" class="tb-search"><span data-ico="search"></span><input name="q" placeholder="ابحث برمز المزرعة…" aria-label="بحث" /></form>
+            <div class="tb-updated"><small>آخر تحديث</small><b id="tb-updated"></b></div>
+            <button type="button" class="icon-btn" id="print" data-ico="printer" title="طباعة" aria-label="طباعة"></button>
+            <button type="button" class="icon-btn" id="theme" data-ico="moon" title="الوضع الليلي" aria-label="تبديل الوضع الليلي"></button>
+          </div>
+        </header>
+        <nav class="mnav" id="mnav" hidden></nav>
+        <main id="app"><p class="muted">جارٍ التحميل…</p></main>
+      </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
