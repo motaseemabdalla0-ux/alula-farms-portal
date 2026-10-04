@@ -672,6 +672,7 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
     return i;
   };
   const CLUSTER = { 1: "#1E88E5", 2: "#E53935", 3: "#FDD835", 4: "#8E24AA", 5: "#FB8C00", 6: "#00ACC1", 7: "#D81B60", COD: "#43A047" };
+  const CL_KEYS = ["1", "2", "3", "4", "5", "6", "7", "COD"];
   const CLUSTER_X = ["#5E35B1", "#6D4C41", "#00897B", "#C0CA33"];
   // category of a farm under each colour mode -> [key, label, colour]
   const catOf = (f, mode) => {
@@ -691,6 +692,8 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
     const [shapes, layers, meters, wells, wpts] = await Promise.all([load("farm-shapes.json"), load("layers.json"), load("meters.json"), load("wells.json"), load("well-points.json")]);
     let mode = p.color || "lease";
     const hidden = new Set();
+    let clSel = p.cl || "";
+    let clShow = true;
     const show = { meterOk: true, meterBad: true, wellReg: true, wellActive: true, wellInactive: true, wellOther: true };
     app.innerHTML = `
       <div class="crumb"><b>${L("لوحة المؤشرات", "Dashboard")}</b> &gt;&gt; ${L("الخريطة الرئيسية", "Main map")}</div>
@@ -705,6 +708,7 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
               <span class="sep"></span>${ico("search")}<input id="sq" value="${esc(p.farm || "")}" placeholder="${L("أدخل رقم المزرعة", "Enter the farm code")}" aria-label="${L("بحث", "Search")}" /><button>${L("بحث", "Go")}</button>
             </form>
             <label class="pill"><select data-nav aria-label="${L("النطاق", "Scope")}"><option value="${href("/map", { color: p.color })}" ${scope !== "all" ? "selected" : ""}>${L("المزارع المنزوعة", "Expropriated farms")}</option><option value="${href("/map", { scope: "all", color: p.color })}" ${scope === "all" ? "selected" : ""}>${L("كل المزارع (سجل الآبار)", "All farms (wells register)")}</option></select></label>
+            <label class="pill"><select id="mcl" aria-label="${L("العنقود", "Cluster")}"><option value="">${L("كل العناقيد", "All clusters")}</option>${CL_KEYS.map((v) => `<option value="${v}" ${clSel === v ? "selected" : ""}>${clName(v)}</option>`).join("")}</select></label>
             <label class="pill"><select id="mode" aria-label="${L("تلوين المزارع", "Colour farms")}">${[["lease", L("حالة التأجير", "Lease status")], ["production", L("كمية الإنتاج", "Production")], ["quality", L("جودة التمور", "Date quality")], ["side", L("الجهة", "Side")], ["cluster", L("العنقود", "Cluster")]].map(([v, l]) => `<option value="${v}" ${mode === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
           </div>
           <div class="mtools">
@@ -743,12 +747,37 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
       all.eachLayer((l) => {
         const [k, , c] = catOf(l.feature.properties, mode);
         l.setStyle(l instanceof L_.CircleMarker ? { fillColor: c } : { color: c, fillColor: c });
-        if (hidden.has(k)) farmsLayer.removeLayer(l);
+        if (hidden.has(k) || (clSel && l.feature.properties.cluster !== clSel)) farmsLayer.removeLayer(l);
         else farmsLayer.addLayer(l);
       });
       map.fire("farmsrefresh");
     }
     refreshFarms();
+
+    // ---- cluster boundaries: convex hull around each cluster's farms, with a permanent name label
+    const hull = (pts) => {
+      pts = [...new Map(pts.map((q) => [q.join(), q])).values()].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+      if (pts.length < 3) return pts;
+      const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+      const half = (arr) => { const h = []; for (const q of arr) { while (h.length >= 2 && cross(h[h.length - 2], h[h.length - 1], q) <= 0) h.pop(); h.push(q); } h.pop(); return h; };
+      return [...half(pts), ...half([...pts].reverse())];
+    };
+    const vertices = (g) => g.type === "Point" ? [g.coordinates] : g.type === "Polygon" ? g.coordinates[0] : g.type === "MultiPolygon" ? g.coordinates.flatMap((q) => q[0]) : [];
+    const clLayer = L_.layerGroup().addTo(map);
+    const clPolys = {};
+    for (const [k, a] of groupBy(feats.filter((f) => f.properties.cluster), (f) => f.properties.cluster)) {
+      const h = hull(a.flatMap((f) => vertices(f.geometry)));
+      if (h.length < 3) continue;
+      const c = CLUSTER[k] || CLUSTER_X[0];
+      const poly = L_.polygon(h.map(([x, y]) => [y, x]), { color: c, weight: 3, dashArray: "8 6", fill: true, fillOpacity: 0.04, interactive: false })
+        .bindTooltip(`${clName(k)} <small dir="${DIR()}">(${fmt(a.length)} ${L("مزرعة", "farms")})</small>`, { permanent: true, direction: "center", className: "cl-label" });
+      clPolys[k] = poly;
+    }
+    function refreshClusters() {
+      clLayer.clearLayers();
+      if (clShow) Object.entries(clPolys).forEach(([k, l]) => (!clSel || k === clSel) && clLayer.addLayer(l));
+    }
+    refreshClusters();
 
     // ---- farm name labels (clickable -> farm profile), shown when zoomed in
     const LABEL_ZOOM = 15;
@@ -810,6 +839,11 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
           <div class="msub">${document.querySelector(`#mode option[value="${mode}"]`)?.textContent || ""} — ${L("انقر للإظهار/الإخفاء", "click to show/hide")}</div>
           ${cats.map(([k, label, c, n]) => `<div class="mrow ${hidden.has(k) ? "off" : ""}" data-cat="${esc(k)}"><span class="dot" style="background:${c}"></span><b class="num">${fmt(n)}</b><span>${esc(label)}</span></div>`).join("")}
         </div>
+        <div class="mcard"><div class="mcard-h"><span>${L("العناقيد", "Clusters")}</span><span class="cnt num">${fmt(Object.keys(clPolys).length)}</span></div>
+          <label class="mrow" style="cursor:pointer"><input type="checkbox" id="clshow" ${clShow ? "checked" : ""} style="accent-color:var(--main)" /><span>${L("إظهار حدود العناقيد", "Show cluster boundaries")}</span></label>
+          <div class="msub">${L("انقر على العنقود لعرض مزارعه فقط", "Click a cluster to show only its farms")}</div>
+          ${CL_KEYS.filter((k) => clPolys[k]).map((k) => `<div class="mrow ${clSel && clSel !== k ? "off" : ""}" data-cl="${k}"><span class="dot" style="background:${CLUSTER[k]};border-radius:3px"></span><b class="num">${fmt(feats.filter((f) => f.properties.cluster === k).length)}</b><span>${clName(k)}</span></div>`).join("")}
+        </div>
         <div class="mcard"><div class="mcard-h"><span>${L("عدادات الكهرباء", "Power meters")}</span><span class="cnt num">${fmt(mOk.getLayers().length + mBad.getLayers().length)}</span></div>
           ${ptRow("meterOk", "meter-ok", L("تعمل", "Working"), mOk.getLayers().length)}${ptRow("meterBad", "meter-bad", L("لا تعمل", "Not working"), mBad.getLayers().length)}
         </div>
@@ -831,8 +865,11 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
       const pt = e.target.closest("[data-pt]");
       if (c) { hidden.has(c.dataset.cat) ? hidden.delete(c.dataset.cat) : hidden.add(c.dataset.cat); refreshFarms(); renderSide(); }
       if (pt) { show[pt.dataset.pt] = !show[pt.dataset.pt]; refreshPoints(); renderSide(); }
+      const cl = e.target.closest("[data-cl]");
+      if (cl) setCluster(clSel === cl.dataset.cl ? "" : cl.dataset.cl);
     });
     side.addEventListener("change", async (e) => {
+      if (e.target.id === "clshow") { clShow = e.target.checked; return refreshClusters(); }
       const key = e.target.dataset.ov;
       if (!key) return;
       if (!e.target.checked) { ovOn.delete(key); ovLayers[key]?.remove(); return; }
@@ -855,10 +892,19 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
       hidden.clear();
       refreshFarms();
       renderSide();
-      history.replaceState(null, "", href("/map", { scope: p.scope, color: mode === "lease" ? undefined : mode }));
+      history.replaceState(null, "", href("/map", { scope: p.scope, color: mode === "lease" ? undefined : mode, cl: clSel || undefined }));
     };
 
     // ---- tools
+    function setCluster(k) {
+      clSel = k;
+      document.getElementById("mcl").value = k;
+      refreshFarms(); refreshClusters(); renderSide();
+      if (k && clPolys[k]) map.fitBounds(clPolys[k].getBounds(), { padding: [40, 40] });
+      else fitAll();
+      history.replaceState(null, "", href("/map", { scope: p.scope, color: mode === "lease" ? undefined : mode, cl: k || undefined }));
+    }
+    document.getElementById("mcl").onchange = (e) => setCluster(e.target.value);
     const fitAll = () => farmsLayer.getBounds().isValid() && map.fitBounds(farmsLayer.getBounds(), { padding: [30, 30] });
     document.getElementById("zin").onclick = () => map.zoomIn();
     document.getElementById("zout").onclick = () => map.zoomOut();
@@ -925,7 +971,7 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
         const Q = q.toUpperCase();
         const hit = index.get(Q) || [...index.entries()].find(([k]) => k.includes(Q))?.[1];
         if (!hit) return say(`${L("لم يتم العثور على المزرعة", "Farm not found")}: ${esc(q)} <button id="mclose">${L("إغلاق", "Close")}</button>`);
-        if (!farmsLayer.hasLayer(hit)) { hidden.clear(); refreshFarms(); renderSide(); }
+        if (!farmsLayer.hasLayer(hit)) { hidden.clear(); clSel = ""; document.getElementById("mcl").value = ""; refreshFarms(); refreshClusters(); renderSide(); }
         say("");
         zoomTo(hit);
       } else if (stype.value === "meter") {

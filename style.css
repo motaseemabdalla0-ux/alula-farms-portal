@@ -365,3 +365,6 @@ details.rec > div { padding: 0 14px 12px; overflow-x: auto; }
 .flabel-icon { background: none; border: 0; }
 .flabel { display: inline-block; transform: translate(-50%, -50%); white-space: nowrap; background: rgba(255,255,255,.92); color: #1b5e20; font: 700 11px/1.2 Cairo, sans-serif; padding: 2px 6px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,.3); text-decoration: none; }
 .flabel:hover { background: var(--main); color: #fff; text-decoration: underline; }
+/* cluster name labels */
+.leaflet-tooltip.cl-label { background: rgba(255,255,255,.95); border: 0; border-radius: 8px; font: 800 13px/1.2 Cairo, sans-serif; color: #1f2937; padding: 3px 10px; box-shadow: 0 2px 6px rgba(0,0,0,.35); }
+.leaflet-tooltip.cl-label::before { display: none; }
