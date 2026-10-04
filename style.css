@@ -368,3 +368,11 @@ details.rec > div { padding: 0 14px 12px; overflow-x: auto; }
 /* cluster name labels */
 .leaflet-tooltip.cl-label { background: rgba(255,255,255,.95); border: 0; border-radius: 8px; font: 800 13px/1.2 Cairo, sans-serif; color: #1f2937; padding: 3px 10px; box-shadow: 0 2px 6px rgba(0,0,0,.35); }
 .leaflet-tooltip.cl-label::before { display: none; }
+/* farm coordinates card */
+.coord-top { display: flex; flex-wrap: wrap; gap: 14px 28px; align-items: flex-end; }
+.coord-top > div:not(.coord-btns) { display: flex; flex-direction: column; gap: 2px; }
+.coord-top b { font-size: 16px; }
+.coord-btns { display: flex; flex-wrap: wrap; gap: 8px; margin-inline-start: auto; }
+.coord-pts { margin-top: 14px; }
+.coord-pts summary { cursor: pointer; font-weight: 700; color: var(--main); padding: 6px 0; }
+.coord-pts .scroll { max-height: 320px; overflow: auto; }
