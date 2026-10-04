@@ -10,9 +10,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
     <link rel="stylesheet" href="style.css" />
-    <script>
-      try { var t = localStorage.getItem("theme"); if (t) document.documentElement.setAttribute("data-theme", t); } catch (e) {}
-    </script>
   </head>
   <body>
     <div class="shell">
@@ -23,7 +20,7 @@
           <a href="#/map" data-ico="map" title="الخريطة" aria-label="الخريطة"></a>
           <a href="#/farms" data-ico="sprout" title="المزارع" aria-label="المزارع"></a>
           <a href="#/wells" data-ico="droplet" title="الآبار" aria-label="الآبار"></a>
-          <a href="#/meters" data-ico="zap" title="العدادات" aria-label="العدادات"></a>
+          <a href="#/meters" data-ico="meter" title="العدادات" aria-label="العدادات"></a>
           <a href="#/sources" data-ico="database" title="مصادر البيانات" aria-label="مصادر البيانات"></a>
         </nav>
         <button type="button" id="logout" data-ico="logout" title="تسجيل الخروج" aria-label="تسجيل الخروج"></button>
@@ -34,14 +31,16 @@
             <span class="tb-ico" data-ico="sprout"></span>
             <div class="tb-title">
               <h2 id="tb-page">منصة بيانات المزارع</h2>
-              <p><span>بيانات المزارع المنزوعة — العلا</span><span class="tb-date" id="tb-date"></span></p>
+              <p><span id="tb-sub">بيانات المزارع المنزوعة — العلا</span><span class="tb-date" id="tb-date"></span></p>
             </div>
           </div>
-          <div class="tb-end" id="tb-end" hidden>
+          <div class="tb-end">
+          <div class="tb-tools" id="tb-end" hidden>
             <form id="gsearch" class="tb-search"><span data-ico="search"></span><input name="q" placeholder="ابحث برمز المزرعة…" aria-label="بحث" /></form>
-            <div class="tb-updated"><small>آخر تحديث</small><b id="tb-updated"></b></div>
+            <div class="tb-updated"><small id="tb-upd-l">آخر تحديث</small><b id="tb-updated"></b></div>
             <button type="button" class="icon-btn" id="print" data-ico="printer" title="طباعة" aria-label="طباعة"></button>
-            <button type="button" class="icon-btn" id="theme" data-ico="moon" title="الوضع الليلي" aria-label="تبديل الوضع الليلي"></button>
+          </div>
+            <button type="button" class="lang-btn" id="lang" aria-label="English">EN</button>
           </div>
         </header>
         <nav class="mnav" id="mnav" hidden></nav>
