@@ -354,3 +354,14 @@ details.rec > div { padding: 0 14px 12px; overflow-x: auto; }
 }
 .dfilters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .dfilters .clear { border: 0; background: none; color: var(--main); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+/* filter-panel arrow: points toward where the panel will move */
+.mside-tab svg.i { transition: transform .3s; transform: rotate(90deg); }
+[dir="rtl"] .mside-tab svg.i { transform: rotate(-90deg); }
+.mside.closed + .mmain .mside-tab svg.i { transform: rotate(-90deg); }
+[dir="rtl"] .mside.closed + .mmain .mside-tab svg.i { transform: rotate(90deg); }
+.mside-tab { width: 26px; color: var(--main); }
+.mside-tab svg.i { width: 18px; height: 18px; }
+/* farm name labels on the map */
+.flabel-icon { background: none; border: 0; }
+.flabel { display: inline-block; transform: translate(-50%, -50%); white-space: nowrap; background: rgba(255,255,255,.92); color: #1b5e20; font: 700 11px/1.2 Cairo, sans-serif; padding: 2px 6px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,.3); text-decoration: none; }
+.flabel:hover { background: var(--main); color: #fff; text-decoration: underline; }

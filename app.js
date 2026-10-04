@@ -342,8 +342,11 @@
   // filter fields shown in the drawer: [param, farm field, label]
   const FILTERS = () => [
     ["side", "side", L("الجهة", "Side")], ["region", "region", L("المنطقة", "Region")], ["lease", "lease_status", L("حالة التأجير", "Lease status")],
-    ["quality", "prod_quality", L("جودة التمور", "Date quality")], ["expro", "expropriation", L("حالة النزع", "Expropriation")], ["has", null, L("تحتوي على", "Has")],
+    ["cluster", "cluster", L("العنقود", "Cluster")], ["quality", "prod_quality", L("جودة التمور", "Date quality")], ["expro", "expropriation", L("حالة النزع", "Expropriation")], ["has", null, L("تحتوي على", "Has")],
   ];
+  // cluster codes are "1".."7" and "COD"
+  const clName = (v) => (/^\d+$/.test(v) ? L(`العنقود ${v}`, `Cluster ${v}`) : t(v));
+  const fLabel = (k, v) => (k === "cluster" ? clName(v) : t(v));
   const HAS = () => [["map", L("حدود على الخريطة", "Map boundary")], ["production", L("بيانات إنتاج", "Production data")], ["meters", L("عدادات كهرباء", "Power meters")], ["wells", L("آبار", "Wells")]];
   const hasTest = { map: (f) => !!f.geometry_source, production: (f) => f.prod_total != null, meters: (f) => f.meters_total > 0, wells: (f) => f.wells_total > 0 };
   function filterFarms(p, q = p.q) {
@@ -378,7 +381,7 @@
     let query = p.q || "";
     const activeCount = FILTERS().reduce((n, [k]) => n + multi(p[k]).length, 0) + (p.deserted ? 1 : 0);
     const chips = [
-      ...FILTERS().flatMap(([k, , label]) => multi(p[k]).map((v) => [k, v, `${label}: ${k === "has" ? HAS().find((h) => h[0] === v)?.[1] ?? v : t(v)}`])),
+      ...FILTERS().flatMap(([k, , label]) => multi(p[k]).map((v) => [k, v, k === "cluster" ? clName(v) : `${label}: ${k === "has" ? HAS().find((h) => h[0] === v)?.[1] ?? v : fLabel(k, v)}`])),
       ...(p.deserted ? [["deserted", p.deserted, L("مرشحة للترك", "To be deserted")]] : []),
     ];
     app.innerHTML = `<div id="farms-root">
@@ -480,7 +483,7 @@
       const base = scoped(scope);
       const droot = document.getElementById("drawer-root");
       const sec = ([k, field, label]) => {
-        const opts = field ? [...groupBy(base, (f) => f[field] ?? "")].filter(([v]) => v !== "").map(([v, a]) => [v, t(v), a.length]).sort((a, b) => String(a[1]).localeCompare(String(b[1])))
+        const opts = field ? [...groupBy(base, (f) => f[field] ?? "")].filter(([v]) => v !== "").map(([v, a]) => [v, fLabel(k, v), a.length]).sort((a, b) => String(a[1]).localeCompare(String(b[1]), undefined, { numeric: true }))
           : HAS().map(([v, l]) => [v, l, base.filter(hasTest[v]).length]);
         if (!opts.length) return "";
         const chosen = multi(p[k]);
@@ -627,7 +630,7 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
   const wellKind = (cat) => (cat === "Active" ? "well" : cat === "Inactive" ? "well-off" : "well-new");
   const fmtDist = (m) => (m < 1000 ? `${fmt(m, 1)} ${L("م", "m")}` : `${fmt(m / 1000, 2)} ${L("كم", "km")}`);
   const popupRows = (rows) => `<table>${rows.map(([k, v]) => `<tr><td style="color:#6b7280;padding-inline-end:12px">${k}</td><td><b>${v}</b></td></tr>`).join("")}</table>`;
-  const farmPopup = (f) => `<div dir="${DIR()}" style="min-width:220px"><div style="font-size:15px;font-weight:700">${esc(f.code)}</div><div style="color:#6b7280;margin-bottom:6px">${esc(f.project)}</div>${popupRows([
+  const farmPopup = (f) => `<div dir="${DIR()}" style="min-width:220px"><a href="#/farm/${encodeURIComponent(f.code)}" title="${L("فتح ملف المزرعة", "Open farm profile")}" style="font-size:15px;font-weight:700;color:${C.green};text-decoration:underline">${esc(f.code)}</a><div style="color:#6b7280;margin-bottom:6px">${esc(f.project)}</div>${popupRows([
     [L("الجهة", "Side"), esc(t(f.side))], [L("المساحة", "Area"), `${fmt(f.area_ha, 2)} ${U.ha()}`], [L("النخيل", "Palms"), fmt(f.date_trees)], [L("الإنتاج", "Production"), `${fmt(f.prod_total, 2)} ${U.t()}`],
     [L("الجودة", "Quality"), esc(t(f.prod_quality))], [L("التأجير", "Lease"), esc(t(f.lease_status))], [L("الآبار", "Wells"), fmt(f.wells_total)], [L("العدادات", "Meters"), fmt(f.meters_total)],
   ])}<a href="#/farm/${encodeURIComponent(f.code)}" style="display:inline-block;margin-top:8px;font-weight:700;color:${C.green}">${L("فتح ملف المزرعة", "Open farm profile")}</a></div>`;
@@ -668,10 +671,13 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
     PROD_STEPS.forEach(([m], k) => { if (v >= m) i = k; });
     return i;
   };
+  const CLUSTER = { 1: "#1E88E5", 2: "#E53935", 3: "#FDD835", 4: "#8E24AA", 5: "#FB8C00", 6: "#00ACC1", 7: "#D81B60", COD: "#43A047" };
+  const CLUSTER_X = ["#5E35B1", "#6D4C41", "#00897B", "#C0CA33"];
   // category of a farm under each colour mode -> [key, label, colour]
   const catOf = (f, mode) => {
     if (mode === "lease") return f.lease_status ? [f.lease_status, t(f.lease_status), LEASE[f.lease_status] || NODATA] : ["", L("غير محدد", "Not specified"), NODATA];
     if (mode === "quality") return f.prod_quality ? [f.prod_quality, t(f.prod_quality), QUALITY[f.prod_quality] || NODATA] : ["", L("غير مصنفة", "Unclassified"), NODATA];
+    if (mode === "cluster") return f.cluster ? [f.cluster, clName(f.cluster), CLUSTER[f.cluster] || CLUSTER_X[[...f.cluster].reduce((h, ch) => h + ch.charCodeAt(0), 0) % CLUSTER_X.length]] : ["", L("خارج العناقيد", "No cluster"), NODATA];
     if (mode === "side") return f.side ? [f.side, t(f.side), SIDE[f.side] || NODATA] : ["", L("غير محدد", "Not specified"), NODATA];
     const b = prodBand(f.prod_total);
     if (b < 0) return ["none", L("لا توجد بيانات إنتاج", "No production data"), NODATA];
@@ -689,17 +695,17 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
     app.innerHTML = `
       <div class="crumb"><b>${L("لوحة المؤشرات", "Dashboard")}</b> &gt;&gt; ${L("الخريطة الرئيسية", "Main map")}</div>
       <div class="mapwrap" id="mapwrap">
-        <aside class="mside" id="mside"></aside>
+        <aside class="mside closed" id="mside"></aside>
         <div class="mmain">
           <div class="map" id="map"></div>
-          <button class="mside-tab" id="mtab" aria-label="${L("إظهار/إخفاء اللوحة", "Toggle panel")}">${ico("side")}</button>
+          <button class="mside-tab" id="mtab" aria-label="${L("إظهار/إخفاء قائمة الفلتر", "Show/hide filter panel")}" title="${L("قائمة الفلتر", "Filter panel")}">${ico("chev")}</button>
           <div class="mtop">
             <form class="pill" id="msearch">
               <select id="stype" aria-label="${L("نوع البحث", "Search type")}"><option value="farm">${L("رقم المزرعة", "Farm code")}</option><option value="meter">${L("رقم العداد", "Meter no.")}</option><option value="coord">${L("الإحداثيات", "Coordinates")}</option></select>
               <span class="sep"></span>${ico("search")}<input id="sq" value="${esc(p.farm || "")}" placeholder="${L("أدخل رقم المزرعة", "Enter the farm code")}" aria-label="${L("بحث", "Search")}" /><button>${L("بحث", "Go")}</button>
             </form>
             <label class="pill"><select data-nav aria-label="${L("النطاق", "Scope")}"><option value="${href("/map", { color: p.color })}" ${scope !== "all" ? "selected" : ""}>${L("المزارع المنزوعة", "Expropriated farms")}</option><option value="${href("/map", { scope: "all", color: p.color })}" ${scope === "all" ? "selected" : ""}>${L("كل المزارع (سجل الآبار)", "All farms (wells register)")}</option></select></label>
-            <label class="pill"><select id="mode" aria-label="${L("تلوين المزارع", "Colour farms")}">${[["lease", L("حالة التأجير", "Lease status")], ["production", L("كمية الإنتاج", "Production")], ["quality", L("جودة التمور", "Date quality")], ["side", L("الجهة", "Side")]].map(([v, l]) => `<option value="${v}" ${mode === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+            <label class="pill"><select id="mode" aria-label="${L("تلوين المزارع", "Colour farms")}">${[["lease", L("حالة التأجير", "Lease status")], ["production", L("كمية الإنتاج", "Production")], ["quality", L("جودة التمور", "Date quality")], ["side", L("الجهة", "Side")], ["cluster", L("العنقود", "Cluster")]].map(([v, l]) => `<option value="${v}" ${mode === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
           </div>
           <div class="mtools">
             <div class="tgroup"><button id="zin" title="${L("تكبير", "Zoom in")}">+</button><button id="zout" title="${L("تصغير", "Zoom out")}">−</button><button id="zfit" title="${L("عرض كل المزارع", "Fit all farms")}">${ico("home")}</button></div>
@@ -740,8 +746,26 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
         if (hidden.has(k)) farmsLayer.removeLayer(l);
         else farmsLayer.addLayer(l);
       });
+      map.fire("farmsrefresh");
     }
     refreshFarms();
+
+    // ---- farm name labels (clickable -> farm profile), shown when zoomed in
+    const LABEL_ZOOM = 15;
+    const labels = L_.layerGroup();
+    function refreshLabels() {
+      labels.clearLayers();
+      if (map.getZoom() < LABEL_ZOOM) return labels.remove();
+      const view = map.getBounds().pad(0.2);
+      farmsLayer.eachLayer((l) => {
+        const ll = l.getBounds ? l.getBounds().getCenter() : l.getLatLng();
+        if (!view.contains(ll)) return;
+        const code = l.feature.properties.code;
+        L_.marker(ll, { icon: L_.divIcon({ className: "flabel-icon", html: `<a class="flabel" href="#/farm/${encodeURIComponent(code)}" title="${L("فتح ملف المزرعة", "Open farm profile")}">${esc(code)}</a>`, iconSize: null }), keyboard: false, zIndexOffset: 500 }).addTo(labels);
+      });
+      labels.addTo(map);
+    }
+    map.on("zoomend moveend farmsrefresh", refreshLabels);
 
     // ---- point layers with icons
     const meterIdx = new Map();
@@ -778,7 +802,7 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
     const ovLayers = {};
     function renderSide() {
       const inScope = feats.map((f) => f.properties);
-      const cats = [...groupBy(inScope, (f) => catOf(f, mode)[0])].map(([k, a]) => [k, catOf(a[0], mode)[1], catOf(a[0], mode)[2], a.length]).sort((a, b) => b[3] - a[3]);
+      const cats = [...groupBy(inScope, (f) => catOf(f, mode)[0])].map(([k, a]) => [k, catOf(a[0], mode)[1], catOf(a[0], mode)[2], a.length]).sort((a, b) => mode === "cluster" ? (!a[0]) - (!b[0]) || a[0].localeCompare(b[0], undefined, { numeric: true }) : b[3] - a[3]);
       const ptRow = (key, kind, label, n) => `<div class="mrow ${show[key] ? "" : "off"}" data-pt="${key}"><span class="ico-b mk ${kind}" style="transform:none;border-radius:6px;border:0;box-shadow:none">${ico(MK[kind])}</span><b class="num">${fmt(n)}</b><span>${label}</span></div>`;
       document.getElementById("mside").innerHTML = `
         <h1>${L("الخريطة الرئيسية", "Main map")}</h1>
