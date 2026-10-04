@@ -11,6 +11,7 @@
   try { LANG = localStorage.getItem("lang") === "en" ? "en" : "ar"; } catch { /* storage blocked */ }
   const L = (ar, en) => (LANG === "en" ? en : ar);
   const DIR = () => (LANG === "en" ? "ltr" : "rtl");
+  const NAME = "AlUla Expropriated Farms";
   const LOCALE = () => (LANG === "en" ? "en-GB" : "ar-SA-u-ca-gregory-nu-latn");
 
   // ------------------------------------------------------------ icons (lucide, MIT)
@@ -41,6 +42,13 @@
     gauge: '<path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/>',
     arrow: '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
     table: '<path d="M12 3v18"/><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/>',
+    filter: '<path d="M3 6h18"/><path d="M7 12h10"/><path d="M10 18h4"/>',
+    chev: '<path d="m6 9 6 6 6-6"/>',
+    side: '<path d="m9 18 6-6-6-6"/>',
+    measure: '<path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"/><path d="m7.5 10.5 2 2"/><path d="m10.5 7.5 2 2"/><path d="m13.5 13.5 2 2"/><path d="m16.5 10.5 2 2"/>',
+    home: '<path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/>',
+    globe: '<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>',
+    sheet: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M8 13h2"/><path d="M14 13h2"/><path d="M8 17h2"/><path d="M14 17h2"/>',
     off: '<path d="M18.36 6.64A9 9 0 0 1 20.77 15"/><path d="M6.16 6.16a9 9 0 1 0 12.68 12.68"/><path d="M12 2v4"/><path d="m2 2 20 20"/>',
   };
   const ico = (n) => `<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n] || ""}</svg>`;
@@ -155,7 +163,7 @@
   const app = document.getElementById("app");
   const PAGES = () => [
     ["/", "dashboard", L("لوحة المؤشرات", "Dashboard")], ["/map", "map", L("الخريطة", "Map")], ["/farms", "sprout", L("المزارع", "Farms")],
-    ["/wells", "droplet", L("الآبار", "Wells")], ["/meters", "meter", L("العدادات", "Meters")], ["/sources", "database", L("مصادر البيانات", "Data sources")],
+    ["/wells", "droplet", L("الآبار", "Wells")], ["/meters", "meter", L("العدادات", "Meters")],
   ];
   let cleanup = null;
   function parse() {
@@ -175,7 +183,7 @@
     const { path, params } = parse();
     const active = PAGES().find(([p]) => (p === "/" ? path === "/" : path.startsWith(p) || (p === "/farms" && path.startsWith("/farm/"))));
     document.querySelectorAll("#nav a, #mnav a").forEach((a) => a.classList.toggle("on", !!active && a.getAttribute("href") === `#${active[0]}`));
-    document.getElementById("tb-page").textContent = active ? active[2] : L("منصة بيانات المزارع", "Farms Data Platform");
+    document.getElementById("tb-page").textContent = active ? active[2] : NAME;
     window.scrollTo(0, 0);
     try {
       if (path === "/") dashboard(params);
@@ -184,7 +192,6 @@
       else if (path.startsWith("/farm/")) await farmPage(decodeURIComponent(path.slice(6)));
       else if (path === "/wells") await wellsPage(params);
       else if (path === "/meters") await metersPage(params);
-      else if (path === "/sources") await sourcesPage();
       else app.innerHTML = `<p class="muted">${L("الصفحة غير موجودة.", "Page not found.")}</p>`;
     } catch (e) {
       app.innerHTML = `<div class="card"><b>${L("تعذّر التحميل", "Could not load")}</b><p class="muted">${esc(e.message)}</p></div>`;
@@ -234,88 +241,119 @@
   const activeOf = (a, n) => L(`${fmt(a)} نشطة / ${fmt(n)}`, `${fmt(a)} active / ${fmt(n)}`);
   const GRADES = () => [L("درجة أولى", "Grade 1"), L("درجة ثانية", "Grade 2"), L("درجة ثالثة (شيص)", "Grade 3 (Shees)")];
 
+  // ------------------------------------------------------------ interactivity helpers
+  // Any element with data-go="#/route?…" navigates on click (dashboard drill-downs, map summary rows).
+  document.addEventListener("click", (e) => {
+    const el = e.target.closest("[data-go]");
+    if (el) location.hash = el.dataset.go;
+  });
+  const go = (path, params) => `data-go="${esc(href(path, params))}"`;
+  const multi = (v) => (v ? String(v).split(",").filter(Boolean) : []);
+  const SEL = new Set(); // farm codes selected for export (kept across filters/pages)
+
   // ------------------------------------------------------------ dashboard
   function dashboard(params) {
     const scope = params.scope === "all" ? "all" : "plan";
-    const F = scoped(scope);
+    const base = scoped(scope);
+    const F = base.filter((f) => (!params.side || f.side === params.side) && (!params.region || f.region === params.region));
     const prod = F.filter((f) => f.prod_total != null);
     const T = {
       area: sum(F, "area_ha"), palms: sum(F, "date_trees"), prod: sum(prod, "prod_total"), g1: sum(prod, "prod_g1"), g2: sum(prod, "prod_g2"), g3: sum(prod, "prod_g3"),
       wells: sum(F, "wells_total"), wa: sum(F, "wells_active"), wi: sum(F, "wells_inactive"), meters: sum(F, "meters_total"), mw: sum(F, "meters_working"), mn: sum(F, "meters_not_working"),
       mapped: F.filter((f) => f.geometry_source).length,
     };
-    const sides = [...groupBy(prod, (f) => f.side || "—")].map(([s, a]) => ({ s, g1: sum(a, "prod_g1"), g2: sum(a, "prod_g2"), g3: sum(a, "prod_g3"), n: a.length }));
+    // every drill-down keeps the dashboard's own filters
+    const keep = { scope: params.scope, side: params.side, region: params.region };
+    const sides = [...groupBy(prod, (f) => f.side || "")].map(([s, a]) => ({ s, g1: sum(a, "prod_g1"), g2: sum(a, "prod_g2"), g3: sum(a, "prod_g3"), n: a.length }));
     const sideMax = Math.max(...sides.map((x) => x.g1 + x.g2 + x.g3), 1e-9);
-    const quality = [...groupBy(prod, (f) => f.prod_quality || "—")].map(([q, a]) => ({
-      name: q === "—" ? L("غير مصنفة (أغلبها الشمال)", "Unclassified (mostly North)") : t(q), value: a.length, color: QUALITY[q] || NODATA,
+    const quality = [...groupBy(prod, (f) => f.prod_quality || "")].map(([q, a]) => ({
+      key: q, name: q ? t(q) : L("غير مصنفة (أغلبها الشمال)", "Unclassified (mostly North)"), value: a.length, color: QUALITY[q] || NODATA,
     })).sort((a, b) => b.value - a.value);
-    const lease = [...groupBy(F, (f) => f.lease_status || "—")].map(([l, a]) => ({
-      name: l === "—" ? L("غير محدد", "Not specified") : t(l), value: a.length, color: LEASE[l] || NODATA,
+    const lease = [...groupBy(F, (f) => f.lease_status || "")].map(([l, a]) => ({
+      key: l, name: l ? t(l) : L("غير محدد", "Not specified"), value: a.length, color: LEASE[l] || NODATA,
     })).sort((a, b) => b.value - a.value);
-    const regions = [...groupBy(F, (f) => f.region || L("غير محدد", "Not specified"))]
+    const regions = [...groupBy(F, (f) => f.region || "")]
       .map(([r, a]) => ({ r, a: sum(a, "wells_active"), i: sum(a, "wells_inactive") }))
       .filter((x) => x.a + x.i > 0).sort((x, y) => (y.a + y.i) - (x.a + x.i)).slice(0, 10);
     const regMax = Math.max(...regions.map((x) => x.a + x.i), 1);
     const top = [...prod].sort((a, b) => b.prod_total - a.prod_total).slice(0, 10);
     const G = GRADES();
+    const opt = (k) => [...new Set(base.map((f) => f[k]).filter(Boolean))].sort();
+    const dpick = (key, label, values) => `<label class="pick"><span>${label}</span><select data-nav aria-label="${label}"><option value="${href("/", { ...keep, [key]: undefined })}">${L("الكل", "All")}</option>${values
+      .map((v) => `<option value="${href("/", { ...keep, [key]: v })}" ${params[key] === v ? "selected" : ""}>${esc(t(v))}</option>`).join("")}</select></label>`;
 
     app.innerHTML = `
-      ${head(L("لوحة مؤشرات المزارع", "Farms Dashboard"), L("بيانات المزارع المنزوعة في العلا: الخرائط، الآبار، العدادات، إنتاج التمور", "AlUla expropriated farms: maps, wells, meters and date production"), scopePick(scope, "/"))}
+      ${head(L("لوحة مؤشرات المزارع", "Farms Dashboard"), L("المزارع المنزوعة في العلا: الخرائط، الآبار، العدادات، إنتاج التمور — انقر على أي رقم أو شريط لعرض تفاصيله", "AlUla expropriated farms — click any figure or bar to drill down"),
+        `<div class="dfilters">${scopePick(scope, "/", { side: params.side, region: params.region })}${opt("side").length ? dpick("side", L("الجهة:", "Side:"), opt("side")) : ""}${dpick("region", L("المنطقة:", "Region:"), opt("region"))}${params.side || params.region ? `<button class="clear" ${go("/", { scope: params.scope })}>${L("مسح", "Clear")}</button>` : ""}</div>`)}
       <div class="kpis k6">
-        ${kpi("sprout", L("عدد المزارع", "Farms"), fmt(F.length), L(`${fmt(T.mapped)} لها حدود على الخريطة`, `${fmt(T.mapped)} mapped with boundaries`), { tint: "green", cls: "t-primary", subCls: "t-primary" })}
-        ${kpi("ruler", L("المساحة الإجمالية", "Total area"), `${fmt(T.area, 1)} <small>${U.ha()}</small>`, L("هكتار", "hectares"))}
-        ${kpi("palm", L("أشجار النخيل", "Date palms"), fmt(T.palms), F.length ? L(`${fmt(T.palms / F.length)} نخلة / مزرعة`, `${fmt(T.palms / F.length)} palms / farm`) : "")}
-        ${kpi("box", L("إنتاج التمور 2026", "Date production 2026"), `${fmt(T.prod, 1)} <small>${U.t()}</small>`, L(`من ${fmt(prod.length)} مزرعة`, `from ${fmt(prod.length)} farms`), { tint: "beige", cls: "t-brown" })}
-        ${kpi("droplet", L("الآبار", "Wells"), fmt(T.wells), L(`${fmt(T.wa)} نشطة · ${fmt(T.wi)} متوقفة`, `${fmt(T.wa)} active · ${fmt(T.wi)} inactive`), { subCls: T.wi ? "t-danger" : "" })}
-        ${kpi("meter", L("عدادات الكهرباء", "Power meters"), fmt(T.meters), L(`${fmt(T.mw)} تعمل · ${fmt(T.mn)} لا تعمل`, `${fmt(T.mw)} working · ${fmt(T.mn)} not working`), { subCls: "t-primary" })}
+        <div class="kpi green clickable" ${go("/farms", keep)}><div class="kl">${ico("sprout")}<span>${L("عدد المزارع", "Farms")}</span></div><div class="kv t-primary">${fmt(F.length)}</div><div class="ks t-primary">${L(`${fmt(T.mapped)} لها حدود على الخريطة`, `${fmt(T.mapped)} mapped`)}</div></div>
+        <div class="kpi clickable" ${go("/farms", { ...keep, sort: "area_ha", dir: "desc" })}><div class="kl">${ico("ruler")}<span>${L("المساحة الإجمالية", "Total area")}</span></div><div class="kv">${fmt(T.area, 1)} <small>${U.ha()}</small></div><div class="ks">${L("هكتار", "hectares")}</div></div>
+        <div class="kpi clickable" ${go("/farms", { ...keep, sort: "date_trees", dir: "desc" })}><div class="kl">${ico("palm")}<span>${L("أشجار النخيل", "Date palms")}</span></div><div class="kv">${fmt(T.palms)}</div><div class="ks">${F.length ? L(`${fmt(T.palms / F.length)} نخلة / مزرعة`, `${fmt(T.palms / F.length)} palms / farm`) : ""}</div></div>
+        <div class="kpi beige clickable" ${go("/farms", { ...keep, has: "production", sort: "prod_total", dir: "desc" })}><div class="kl">${ico("box")}<span>${L("إنتاج التمور 2026", "Date production 2026")}</span></div><div class="kv t-brown">${fmt(T.prod, 1)} <small>${U.t()}</small></div><div class="ks">${L(`من ${fmt(prod.length)} مزرعة`, `from ${fmt(prod.length)} farms`)}</div></div>
+        <div class="kpi clickable" ${go("/wells", { scope: params.scope })}><div class="kl">${ico("droplet")}<span>${L("الآبار", "Wells")}</span></div><div class="kv">${fmt(T.wells)}</div><div class="ks ${T.wi ? "t-danger" : ""}">${L(`${fmt(T.wa)} نشطة · ${fmt(T.wi)} متوقفة`, `${fmt(T.wa)} active · ${fmt(T.wi)} inactive`)}</div></div>
+        <div class="kpi clickable" ${go("/meters", {})}><div class="kl">${ico("meter")}<span>${L("عدادات الكهرباء", "Power meters")}</span></div><div class="kv">${fmt(T.meters)}</div><div class="ks t-primary">${L(`${fmt(T.mw)} تعمل · ${fmt(T.mn)} لا تعمل`, `${fmt(T.mw)} working · ${fmt(T.mn)} not working`)}</div></div>
       </div>
       <div class="grid12">
         ${card("trend", L("إنتاج التمور حسب الدرجة (طن)", "Date production by grade (t)"), prod.length ? `
           <div class="grid12" style="margin:0">
             <div class="c6"><div class="sub-h">${L("حسب الجهة", "By side")}</div>
-              ${sides.map((x) => prow(`${t(x.s)} (${fmt(x.n)} ${U.farms()})`, `${fmt(x.g1 + x.g2 + x.g3, 1)} ${U.t()}`, [{ v: x.g1, c: GRADE[0], t: G[0] }, { v: x.g2, c: GRADE[1], t: G[1] }, { v: x.g3, c: GRADE[2], t: G[2] }], sideMax)).join("")}
+              ${sides.map((x) => clickRow(prow(`${x.s ? t(x.s) : L("غير محدد", "Not specified")} (${fmt(x.n)} ${U.farms()})`, `${fmt(x.g1 + x.g2 + x.g3, 1)} ${U.t()}`, [{ v: x.g1, c: GRADE[0], t: G[0] }, { v: x.g2, c: GRADE[1], t: G[1] }, { v: x.g3, c: GRADE[2], t: G[2] }], sideMax), x.s ? href("/", { ...keep, side: x.s }) : null)).join("")}
               ${legend(G.map((g, i) => [g, GRADE[i]]))}
             </div>
             <div class="c6"><div class="sub-h">${L("حسب الدرجة", "By grade")}</div>
-              ${prow(L("درجة أولى — جودة عالية", "Grade 1 — high quality"), `${fmt(T.g1, 1)} / ${fmt(T.prod, 1)}`, [{ v: T.g1, c: GRADE[0] }], T.prod)}
-              ${prow(L("درجة ثانية — متوسطة", "Grade 2 — medium"), `${fmt(T.g2, 1)} / ${fmt(T.prod, 1)}`, [{ v: T.g2, c: GRADE[1] }], T.prod)}
-              ${prow(L("درجة ثالثة — شيص", "Grade 3 — Shees (low)"), `${fmt(T.g3, 1)} / ${fmt(T.prod, 1)}`, [{ v: T.g3, c: GRADE[2] }], T.prod)}
+              ${[[L("درجة أولى — جودة عالية", "Grade 1 — high quality"), T.g1, "High"], [L("درجة ثانية — متوسطة", "Grade 2 — medium"), T.g2, "Medium"], [L("درجة ثالثة — شيص", "Grade 3 — Shees (low)"), T.g3, "Low"]]
+                .map(([lab, v, q], i) => clickRow(prow(lab, `${fmt(v, 1)} / ${fmt(T.prod, 1)}`, [{ v, c: GRADE[i] }], T.prod), href("/farms", { ...keep, quality: q }))).join("")}
             </div>
           </div>` : `<p class="muted">${L("لا توجد بيانات إنتاج لهذا النطاق.", "No production data for this scope.")}</p>`, { span: "c7" })}
         ${card("gauge", L("مؤشرات التشغيل", "Operational indicators"), `<div class="rings">
-            ${ring(pct(T.mw, T.meters), C.green, L("عدادات تعمل", "Meters working"))}
-            ${ring(pct(T.wa, T.wells), C.brown, L("آبار نشطة", "Wells active"))}
-            ${ring(pct(T.mapped, F.length), C.gold, L("مزارع لها حدود", "Farms mapped"))}
+            <div class="ring clickable" ${go("/meters", { status: "Working" })}>${ringInner(pct(T.mw, T.meters), C.green, L("عدادات تعمل", "Meters working"))}</div>
+            <div class="ring clickable" ${go("/wells", { scope: params.scope })}>${ringInner(pct(T.wa, T.wells), C.brown, L("آبار نشطة", "Wells active"))}</div>
+            <div class="ring clickable" ${go("/map", { scope: params.scope })}>${ringInner(pct(T.mapped, F.length), C.gold, L("مزارع لها حدود", "Farms mapped"))}</div>
           </div>
-          <div class="strip" style="margin-top:16px"><div><b class="num">${fmt(prod.length)}</b><span>${L("مزارع لها إنتاج", "Producing farms")}</span></div><div><b class="num">${fmt(T.palms ? (T.prod * 1000) / T.palms : 0, 1)}</b><span>${L("كجم / نخلة", "kg / palm")}</span></div><div><b class="num">${fmt(F.filter((f) => f.deserted === "Yes").length)}</b><span>${L("مرشحة للترك", "To be deserted")}</span></div></div>`, { span: "c5" })}
+          <div class="strip" style="margin-top:16px"><div class="clickable" ${go("/farms", { ...keep, has: "production" })}><b class="num">${fmt(prod.length)}</b><span>${L("مزارع لها إنتاج", "Producing farms")}</span></div><div><b class="num">${fmt(T.palms ? (T.prod * 1000) / T.palms : 0, 1)}</b><span>${L("كجم / نخلة", "kg / palm")}</span></div><div class="clickable" ${go("/farms", { ...keep, deserted: "Yes" })}><b class="num">${fmt(F.filter((f) => f.deserted === "Yes").length)}</b><span>${L("مرشحة للترك", "To be deserted")}</span></div></div>`, { span: "c5" })}
       </div>
       <div class="grid12">
-        ${card("droplet", L("الآبار حسب المنطقة", "Wells by region"), regions.length ? regions.map((r) => prow(r.r, activeOf(r.a, r.a + r.i), [{ v: r.a, c: C.green }, { v: r.i, c: C.red }], regMax)).join("") + legend([[L("آبار نشطة", "Active wells"), C.green], [L("آبار متوقفة", "Inactive wells"), C.red]]) : `<p class="muted">${L("لا توجد آبار مسجلة لهذا النطاق.", "No wells recorded for this scope.")}</p>`, { span: "c7" })}
-        ${card("pie", L("جودة التمور", "Date quality"), donut(quality), { span: "c5" })}
+        ${card("droplet", L("الآبار حسب المنطقة", "Wells by region"), regions.length ? regions.map((r) => clickRow(prow(r.r || L("غير محدد", "Not specified"), activeOf(r.a, r.a + r.i), [{ v: r.a, c: C.green }, { v: r.i, c: C.red }], regMax), r.r ? href("/farms", { ...keep, region: r.r, has: "wells" }) : null)).join("") + legend([[L("آبار نشطة", "Active wells"), C.green], [L("آبار متوقفة", "Inactive wells"), C.red]]) : `<p class="muted">${L("لا توجد آبار مسجلة لهذا النطاق.", "No wells recorded for this scope.")}</p>`, { span: "c7" })}
+        ${card("pie", L("جودة التمور", "Date quality"), donutLinks(quality, (x) => (x.key ? href("/farms", { ...keep, quality: x.key }) : href("/farms", { ...keep, has: "production" }))), { span: "c5" })}
       </div>
       <div class="grid12">
         ${card("award", L("أعلى 10 مزارع إنتاجاً", "Top 10 producing farms"), `<div class="scroll"><table class="tbl"><thead><tr><th>${L("رمز المزرعة", "Farm code")}</th><th>${L("المشروع", "Project")}</th><th>${L("الجهة", "Side")}</th><th>${L("النخيل", "Palms")}</th><th>${L("الإنتاج (طن)", "Production (t)")}</th><th>${L("الجودة", "Quality")}</th></tr></thead><tbody>
-          ${top.map((f) => `<tr><td>${farmLink(f.code)}</td><td>${esc(f.project)}</td><td>${t(f.side)}</td><td class="num">${fmt(f.date_trees)}</td><td class="num"><b>${fmt(f.prod_total, 2)}</b></td><td>${badge(f.prod_quality)}</td></tr>`).join("")}
-          </tbody></table></div>`, { span: "c8", action: `<a class="link" href="#/farms?sort=prod_total&dir=desc">${L("كل المزارع", "All farms")}</a>` })}
-        ${card("layers", L("حالة التأجير", "Lease status"), donut(lease), { span: "c4" })}
-      </div>
-      <p class="note">${L("المصدر: ملفات الهيئة الملكية لمحافظة العلا. أُزيلت أسماء الملاك وأرقام التواصل من هذه النسخة.", "Source: Royal Commission for AlUla files. Owner names and contact numbers are removed from this copy.")}</p>`;
+          ${top.map((f) => `<tr class="clickable" ${go(`/farm/${encodeURIComponent(f.code)}`, {})}><td>${farmLink(f.code)}</td><td>${esc(f.project)}</td><td>${t(f.side)}</td><td class="num">${fmt(f.date_trees)}</td><td class="num"><b>${fmt(f.prod_total, 2)}</b></td><td>${badge(f.prod_quality)}</td></tr>`).join("")}
+          </tbody></table></div>`, { span: "c8", action: `<a class="link" href="${href("/farms", { ...keep, sort: "prod_total", dir: "desc" })}">${L("كل المزارع", "All farms")}</a>` })}
+        ${card("layers", L("حالة التأجير", "Lease status"), donutLinks(lease, (x) => (x.key ? href("/farms", { ...keep, lease: x.key }) : null)), { span: "c4" })}
+      </div>`;
+  }
+  const clickRow = (html, target) => (target ? html.replace('<div class="prow">', `<div class="prow clickable" data-go="${esc(target)}">`) : html);
+  const ringInner = (p, color, label) => `<div class="r" style="background:conic-gradient(${color} ${p * 3.6}deg, var(--track) 0)"><b class="num">${fmt(p, 1)}%</b></div><span>${label}</span>`;
+  function donutLinks(items, target) {
+    let i = 0;
+    return donut(items).replace(/<li>/g, () => {
+      const tg = target(items[i++]);
+      return tg ? `<li class="clickable" data-go="${esc(tg)}">` : "<li>";
+    });
   }
 
-  // ------------------------------------------------------------ farms list
+  // ------------------------------------------------------------ farms list (Agriculture Center IPM pattern)
   const COLS = () => [
     ["code", L("رمز المزرعة", "Farm code")], ["project", L("المشروع", "Project")], ["region", L("المنطقة", "Region")], ["side", L("الجهة", "Side")],
     ["area_ha", L("المساحة (هـ)", "Area (ha)")], ["date_trees", L("النخيل", "Palms")], ["prod_total", L("الإنتاج (طن)", "Production (t)")], ["prod_quality", L("الجودة", "Quality")],
-    ["wells_total", L("الآبار", "Wells")], ["meters_total", L("العدادات", "Meters")], ["lease_status", L("التأجير", "Lease")], ["source_count", L("المصادر", "Sources")],
+    ["wells_total", L("الآبار", "Wells")], ["meters_total", L("العدادات", "Meters")], ["lease_status", L("التأجير", "Lease")],
   ];
-  function filterFarms(p) {
+  // filter fields shown in the drawer: [param, farm field, label]
+  const FILTERS = () => [
+    ["side", "side", L("الجهة", "Side")], ["region", "region", L("المنطقة", "Region")], ["lease", "lease_status", L("حالة التأجير", "Lease status")],
+    ["quality", "prod_quality", L("جودة التمور", "Date quality")], ["expro", "expropriation", L("حالة النزع", "Expropriation")], ["has", null, L("تحتوي على", "Has")],
+  ];
+  const HAS = () => [["map", L("حدود على الخريطة", "Map boundary")], ["production", L("بيانات إنتاج", "Production data")], ["meters", L("عدادات كهرباء", "Power meters")], ["wells", L("آبار", "Wells")]];
+  const hasTest = { map: (f) => !!f.geometry_source, production: (f) => f.prod_total != null, meters: (f) => f.meters_total > 0, wells: (f) => f.wells_total > 0 };
+  function filterFarms(p, q = p.q) {
     const scope = p.scope === "all" ? "all" : "plan";
-    const q = (p.q || "").toLowerCase();
+    const ql = (q || "").toLowerCase();
+    const sets = Object.fromEntries(FILTERS().map(([k]) => [k, multi(p[k])]));
     let rows = scoped(scope).filter((f) =>
-      (!q || [f.code, f.region, f.project, f.plot_code, f.cluster].some((v) => v && String(v).toLowerCase().includes(q))) &&
-      (!p.side || f.side === p.side) && (!p.region || f.region === p.region) && (!p.lease || f.lease_status === p.lease) &&
-      (!p.quality || f.prod_quality === p.quality) &&
-      (!p.has || (p.has === "map" ? f.geometry_source : p.has === "production" ? f.prod_total != null : p.has === "meters" ? f.meters_total > 0 : f.wells_total > 0)));
+      (!ql || [f.code, f.region, f.project, f.plot_code, f.cluster].some((v) => v && String(v).toLowerCase().includes(ql))) &&
+      FILTERS().every(([k, field]) => !sets[k].length || (field ? sets[k].includes(f[field] ?? "") : sets[k].every((h) => hasTest[h]?.(f)))) &&
+      (!p.deserted || f.deserted === p.deserted));
     const sort = COLS().some((c) => c[0] === p.sort) ? p.sort : scope === "plan" ? "prod_total" : "code";
     const dir = p.dir === "asc" ? 1 : p.dir === "desc" ? -1 : sort === "code" ? 1 : -1;
     rows = rows.sort((a, b) => {
@@ -327,57 +365,248 @@
     });
     return { rows, scope, sort, dir };
   }
+  const statusCell = (v) => {
+    if (!v) return `<span class="st none">—</span>`;
+    const tn = tone(v);
+    return `<span class="st ${tn === "primary" ? "ok" : tn === "danger" ? "bad" : tn === "warn" ? "mid" : "none"}">${esc(t(v))}</span>`;
+  };
+
   function farmsPage(p) {
-    const { rows, scope, sort, dir } = filterFarms(p);
     const SIZE = 50;
-    const pages = Math.max(1, Math.ceil(rows.length / SIZE));
-    const page = Math.min(pages, Math.max(1, Number(p.page) || 1));
-    const base = scoped(scope);
-    const opts = (k) => [...new Set(base.map((f) => f[k]).filter(Boolean))].sort();
-    const all = L("الكل", "All");
-    const sel = (name, label, values) => values.length ? `<select class="field" name="${name}" aria-label="${label}"><option value="">${label}: ${all}</option>${values.map((v) => `<option value="${esc(v)}" ${p[name] === v ? "selected" : ""}>${esc(t(v))}</option>`).join("")}</select>` : "";
+    let { rows, scope, sort, dir } = filterFarms(p);
+    let page = Math.max(1, Number(p.page) || 1);
+    let query = p.q || "";
+    const activeCount = FILTERS().reduce((n, [k]) => n + multi(p[k]).length, 0) + (p.deserted ? 1 : 0);
+    const chips = [
+      ...FILTERS().flatMap(([k, , label]) => multi(p[k]).map((v) => [k, v, `${label}: ${k === "has" ? HAS().find((h) => h[0] === v)?.[1] ?? v : t(v)}`])),
+      ...(p.deserted ? [["deserted", p.deserted, L("مرشحة للترك", "To be deserted")]] : []),
+    ];
+    app.innerHTML = `<div id="farms-root">
+      ${head(L("المزارع", "Farms"), L("حدد المزارع ثم اضغط «تصدير» لتنزيل بياناتها", "Select farms, then press Export to download their data"), scopePick(scope, "/farms", { ...p, page: undefined }))}
+      <div class="list-card">
+        <div class="list-bar">
+          <label class="list-search">${ico("search")}<input id="fq" value="${esc(query)}" placeholder="${L("ابحث برمز المزرعة، المشروع، المنطقة، رمز القطعة", "Search by farm code, project, region, plot code")}" aria-label="${L("بحث", "Search")}" /></label>
+          <button class="tbtn ghost" id="fbtn">${ico("filter")}${L("فلتر", "Filter")}${activeCount ? `<span class="cnt">${activeCount}</span>` : ""}</button>
+          <div class="rel"><button class="tbtn" id="xbtn" ${SEL.size ? "" : "disabled"}>${ico("download")}${L("تصدير", "Export")}</button><div class="menu" id="xmenu" hidden></div></div>
+        </div>
+        ${chips.length ? `<div class="chips-bar">${chips.map(([k, v, label]) => `<span class="fchip">${esc(label)}<button data-rm="${esc(k)}" data-v="${esc(v)}" aria-label="${L("إزالة", "Remove")}">×</button></span>`).join("")}<button class="sel-line" style="border:0;padding:3px 6px;background:none;color:var(--main);font-weight:600;cursor:pointer" data-go="${esc(href("/farms", { scope: p.scope }))}">${L("مسح الكل", "Clear all")}</button></div>` : ""}
+        <div class="sel-line" id="selline"></div>
+        <div class="scroll"><table class="tbl ipm"><thead><tr><th style="width:40px"><input type="checkbox" id="selpage" aria-label="${L("تحديد الصفحة", "Select page")}" /></th>${COLS().map(([k, l]) => `<th><a href="${href("/farms", { ...p, sort: k, dir: sort === k && dir === -1 ? "asc" : "desc", page: undefined })}">${l} ${sort === k ? (dir === -1 ? "▼" : "▲") : "↕"}</a></th>`).join("")}</tr></thead><tbody id="ftb"></tbody></table></div>
+        <div class="pager" id="fpager" style="padding:0 0 14px"></div>
+      </div>
+      <div id="drawer-root"></div></div>`;
+    // listeners live on this page's own root, which is replaced on the next render (no build-up on #app)
+    const root = document.getElementById("farms-root");
+
     const cell = (f, k) => {
       if (k === "code") return farmLink(f.code);
       if (k === "project") return `<span class="trunc" style="display:inline-block">${esc(f.project)}</span>`;
       if (k === "side") return t(f.side);
-      if (k === "prod_quality" || k === "lease_status") return badge(f[k]);
-      if (k === "wells_total") return f.wells_total ? `${f.wells_total}${f.wells_inactive ? ` <span class="t-danger" style="font-size:12px">(${f.wells_inactive} ${L("متوقفة", "inactive")})</span>` : ""}` : "—";
-      if (k === "meters_total") return f.meters_total ? `${f.meters_total}${f.meters_not_working ? ` <span class="t-danger" style="font-size:12px">(${f.meters_not_working} ${L("لا تعمل", "not working")})</span>` : ""}` : "—";
+      if (k === "prod_quality" || k === "lease_status") return statusCell(f[k]);
+      if (k === "wells_total") return f.wells_total ? `${f.wells_total}${f.wells_inactive ? ` <span class="t-danger">(${f.wells_inactive} ${L("متوقفة", "inactive")})</span>` : ""}` : "—";
+      if (k === "meters_total") return f.meters_total ? `${f.meters_total}${f.meters_not_working ? ` <span class="t-danger">(${f.meters_not_working} ${L("لا تعمل", "not working")})</span>` : ""}` : "—";
       if (k === "prod_total") return `<b>${fmt(f.prod_total, 2)}</b>`;
       if (k === "area_ha") return fmt(f.area_ha, 2);
       if (k === "region") return esc(f.region);
       return fmt(f[k]);
     };
-    app.innerHTML = `
-      ${head(L("سجل المزارع", "Farms register"), L(`<b class="num">${fmt(rows.length)}</b> مزرعة مطابقة`, `<b class="num">${fmt(rows.length)}</b> matching farms`), `${scopePick(scope, "/farms", { q: p.q })}<button class="btn" id="csv">${ico("download")}${L("تصدير CSV", "Export CSV")}</button>`)}
-      <form class="card filters" id="ff">
-        <input class="field grow" name="q" value="${esc(p.q || "")}" placeholder="${L("بحث: رمز، مشروع، منطقة…", "Search: code, project, region…")}" />
-        ${sel("side", L("الجهة", "Side"), opts("side"))}${sel("region", L("المنطقة", "Region"), opts("region"))}${sel("lease", L("التأجير", "Lease"), opts("lease_status"))}${sel("quality", L("الجودة", "Quality"), opts("prod_quality"))}
-        <select class="field" name="has" aria-label="${L("تحتوي على", "Has")}"><option value="">${L("تحتوي على: أي", "Has: any")}</option>${[["map", L("حدود على الخريطة", "Map boundary")], ["production", L("بيانات إنتاج", "Production data")], ["meters", L("عدادات", "Meters")], ["wells", L("آبار", "Wells")]].map(([v, l]) => `<option value="${v}" ${p.has === v ? "selected" : ""}>${l}</option>`).join("")}</select>
-        <button class="btn btn-primary">${L("تطبيق", "Apply")}</button><a class="btn" href="${href("/farms", { scope: p.scope })}">${L("مسح", "Clear")}</a>
-      </form>
-      <div class="card scroll" style="padding:0"><table class="tbl"><thead><tr>${COLS().map(([k, l]) => `<th><a href="${href("/farms", { ...p, sort: k, dir: sort === k && dir === -1 ? "asc" : "desc", page: undefined })}">${l} ${sort === k ? (dir === -1 ? "▼" : "▲") : ""}</a></th>`).join("")}</tr></thead>
-      <tbody>${rows.slice((page - 1) * SIZE, page * SIZE).map((f) => `<tr>${COLS().map(([k]) => `<td class="${["area_ha", "date_trees", "prod_total", "wells_total", "meters_total", "source_count"].includes(k) ? "num" : ""}">${cell(f, k)}</td>`).join("")}</tr>`).join("") || `<tr><td colspan="12" class="empty">${L("لا توجد نتائج", "No results")}</td></tr>`}</tbody></table></div>
-      ${pages > 1 ? `<div class="pager">${page > 1 ? `<a class="btn" href="${href("/farms", { ...p, page: page - 1 })}">${L("السابق", "Previous")}</a>` : ""}<span class="muted">${L("صفحة", "Page")} <b class="num">${page}</b> ${L("من", "of")} <b class="num">${pages}</b></span>${page < pages ? `<a class="btn" href="${href("/farms", { ...p, page: page + 1 })}">${L("التالي", "Next")}</a>` : ""}</div>` : ""}`;
-    document.getElementById("ff").onsubmit = (e) => {
-      e.preventDefault();
-      const fd = Object.fromEntries(new FormData(e.target));
-      location.hash = href("/farms", { ...fd, scope: p.scope, sort: p.sort, dir: p.dir });
-    };
-    document.getElementById("csv").onclick = () => {
-      const keys = ["code", "project", "plot_code", "region", "side", "cluster", "land_use", "area_ha", "date_trees", "citrus_trees", "mango_trees", "prod_g1", "prod_g2", "prod_g3", "prod_total", "prod_quality", "varieties", "wells_active", "wells_inactive", "wells_total", "meters_total", "meters_working", "meters_not_working", "lease_status", "expropriation", "deserted", "capex", "opex", "rev_y3", "lat", "lng"];
+    const tb = document.getElementById("ftb");
+    function renderRows() {
+      const pages = Math.max(1, Math.ceil(rows.length / SIZE));
+      page = Math.min(page, pages);
+      const slice = rows.slice((page - 1) * SIZE, page * SIZE);
+      tb.innerHTML = slice.map((f) => `<tr class="${SEL.has(f.code) ? "sel" : ""}"><td><input type="checkbox" data-code="${esc(f.code)}" ${SEL.has(f.code) ? "checked" : ""} aria-label="${esc(f.code)}" /></td>${COLS().map(([k]) => `<td class="${["area_ha", "date_trees", "prod_total", "wells_total", "meters_total"].includes(k) ? "num" : ""}">${cell(f, k)}</td>`).join("")}</tr>`).join("")
+        || `<tr><td colspan="${COLS().length + 1}" class="empty">${L("لا توجد نتائج", "No results")}</td></tr>`;
+      document.getElementById("fpager").innerHTML = pages > 1 ? `${page > 1 ? `<button class="tbtn" data-pg="${page - 1}">${L("السابق", "Previous")}</button>` : ""}<span class="muted">${L("صفحة", "Page")} <b class="num">${page}</b> ${L("من", "of")} <b class="num">${pages}</b></span>${page < pages ? `<button class="tbtn" data-pg="${page + 1}">${L("التالي", "Next")}</button>` : ""}` : "";
+      const allOnPage = slice.length && slice.every((f) => SEL.has(f.code));
+      document.getElementById("selpage").checked = !!allOnPage;
+      renderSel();
+    }
+    function renderSel() {
+      const inRows = rows.filter((f) => SEL.has(f.code)).length;
+      document.getElementById("selline").innerHTML = `<span><b class="num">${fmt(SEL.size)}</b> ${L("محددة", "Selected")}</span><span class="muted">${L(`${fmt(rows.length)} مزرعة مطابقة`, `${fmt(rows.length)} matching farms`)}</span>
+        ${rows.length && inRows < rows.length ? `<button id="selall">${L(`تحديد كل المطابقة (${fmt(rows.length)})`, `Select all matching (${fmt(rows.length)})`)}</button>` : ""}
+        ${SEL.size ? `<button id="selnone">${L("إلغاء التحديد", "Clear selection")}</button>` : ""}`;
+      document.getElementById("xbtn").disabled = !SEL.size;
+    }
+    renderRows();
+
+    let tmr = null;
+    document.getElementById("fq").addEventListener("input", (e) => {
+      clearTimeout(tmr);
+      tmr = setTimeout(() => {
+        query = e.target.value;
+        ({ rows } = filterFarms(p, query));
+        page = 1;
+        renderRows();
+        history.replaceState(null, "", href("/farms", { ...p, q: query || undefined, page: undefined }));
+      }, 200);
+    });
+    root.addEventListener("change", (e) => {
+      if (e.target.matches("input[data-code]")) {
+        e.target.checked ? SEL.add(e.target.dataset.code) : SEL.delete(e.target.dataset.code);
+        e.target.closest("tr").classList.toggle("sel", e.target.checked);
+        renderSel();
+      } else if (e.target.id === "selpage") {
+        rows.slice((page - 1) * SIZE, page * SIZE).forEach((f) => (e.target.checked ? SEL.add(f.code) : SEL.delete(f.code)));
+        renderRows();
+      }
+    });
+    root.addEventListener("click", (e) => {
+      const b = e.target.closest("button");
+      if (!b) return;
+      if (b.dataset.pg) { page = Number(b.dataset.pg); renderRows(); window.scrollTo(0, 0); }
+      else if (b.id === "selall") { rows.forEach((f) => SEL.add(f.code)); renderRows(); }
+      else if (b.id === "selnone") { SEL.clear(); renderRows(); }
+      else if (b.dataset.rm) {
+        const left = b.dataset.rm === "deserted" ? [] : multi(p[b.dataset.rm]).filter((v) => v !== b.dataset.v);
+        location.hash = href("/farms", { ...p, [b.dataset.rm]: left.join(",") || undefined, page: undefined });
+      } else if (b.id === "fbtn") openDrawer();
+      else if (b.id === "xbtn") {
+        const m = document.getElementById("xmenu");
+        m.hidden = !m.hidden;
+        m.innerHTML = `
+          <button data-x="xlsx">${ico("sheet")}<span>${L("ملف Excel", "Excel workbook")}<small>${L("المزارع + العدادات + الآبار", "Farms + meters + wells")}</small></span></button>
+          <button data-x="csv">${ico("table")}<span>CSV<small>${L("بيانات المزارع فقط", "Farm data only")}</small></span></button>
+          <button data-x="kml">${ico("globe")}<span>KML<small>${L("الحدود لـ Google Earth", "Boundaries for Google Earth")}</small></span></button>
+          <button data-x="geojson">${ico("map")}<span>GeoJSON<small>${L("الحدود لبرامج GIS", "Boundaries for GIS")}</small></span></button>`;
+      } else if (b.dataset.x) {
+        document.getElementById("xmenu").hidden = true;
+        exportFarms(b.dataset.x, FARMS.filter((f) => SEL.has(f.code)));
+      }
+    });
+
+    function openDrawer() {
+      const base = scoped(scope);
+      const droot = document.getElementById("drawer-root");
+      const sec = ([k, field, label]) => {
+        const opts = field ? [...groupBy(base, (f) => f[field] ?? "")].filter(([v]) => v !== "").map(([v, a]) => [v, t(v), a.length]).sort((a, b) => String(a[1]).localeCompare(String(b[1])))
+          : HAS().map(([v, l]) => [v, l, base.filter(hasTest[v]).length]);
+        if (!opts.length) return "";
+        const chosen = multi(p[k]);
+        return `<div class="fsec ${chosen.length ? "open" : ""}" data-k="${k}"><div class="fsec-h"><span>${label}${chosen.length ? `<span class="cnt">${chosen.length}</span>` : ""}</span>${ico("chev")}</div>
+          <div class="fsec-b"><label class="all"><input type="checkbox" data-all /> ${L("تحديد الكل", "Select all")}</label>
+          ${opts.map(([v, l, n]) => `<label><input type="checkbox" value="${esc(v)}" ${chosen.includes(v) ? "checked" : ""} /> ${esc(l)}<small class="num">${fmt(n)}</small></label>`).join("")}</div></div>`;
+      };
+      droot.innerHTML = `<div class="drawer-bg" id="dbg"></div><aside class="drawer" role="dialog" aria-label="${L("الفلاتر", "Filters")}">
+        <div class="drawer-h"><h2>${L("الفلاتر", "Filters")}</h2><button class="drawer-x" id="dx" aria-label="${L("إغلاق", "Close")}">✕</button></div>
+        <div class="drawer-b">${FILTERS().map(sec).join("")}</div>
+        <div class="drawer-f"><button class="reset" id="dreset">${L("إعادة تعيين", "Reset")}</button><button class="apply" id="dapply">${L("تطبيق", "Apply")}</button></div></aside>`;
+      const close = () => (droot.innerHTML = "");
+      droot.querySelectorAll(".fsec").forEach((s) => {
+        const boxes = [...s.querySelectorAll(".fsec-b input:not([data-all])")];
+        const all = s.querySelector("[data-all]");
+        const sync = () => {
+          all.checked = boxes.every((b) => b.checked);
+          const n = boxes.filter((b) => b.checked).length;
+          const h = s.querySelector(".fsec-h > span");
+          h.querySelector(".cnt")?.remove();
+          if (n) h.insertAdjacentHTML("beforeend", `<span class="cnt">${n}</span>`);
+        };
+        sync();
+        s.querySelector(".fsec-h").onclick = () => s.classList.toggle("open");
+        all.onchange = () => { boxes.forEach((b) => (b.checked = all.checked)); sync(); };
+        boxes.forEach((b) => (b.onchange = sync));
+      });
+      document.getElementById("dbg").onclick = close;
+      document.getElementById("dx").onclick = close;
+      document.getElementById("dreset").onclick = () => droot.querySelectorAll(".fsec input").forEach((b) => (b.checked = false)) || droot.querySelectorAll(".fsec .cnt").forEach((c) => c.remove());
+      document.getElementById("dapply").onclick = () => {
+        const next = { scope: p.scope, q: query || undefined, sort: p.sort, dir: p.dir };
+        droot.querySelectorAll(".fsec").forEach((s) => {
+          const boxes = [...s.querySelectorAll(".fsec-b input:not([data-all])")];
+          const on = boxes.filter((b) => b.checked).map((b) => b.value);
+          // all ticked == no filter, like the platform's "Select All"
+          next[s.dataset.k] = on.length && on.length < boxes.length ? on.join(",") : undefined;
+        });
+        close();
+        location.hash = href("/farms", next);
+      };
+    }
+  }
+
+  // ------------------------------------------------------------ export of selected farms
+  const loadScript = (src) => new Promise((ok, bad) => {
+    const s = document.createElement("script");
+    s.src = src;
+    s.onload = ok;
+    s.onerror = () => bad(new Error(src));
+    document.head.appendChild(s);
+  });
+  const download = (name, blob) => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
+  const FARM_COLS = () => [
+    ["code", L("رمز المزرعة", "Farm code")], ["project", L("المشروع", "Project")], ["plot_code", L("رمز القطعة", "Plot code")], ["region", L("المنطقة", "Region")],
+    ["side", L("الجهة", "Side")], ["cluster", L("العنقود", "Cluster")], ["land_use", L("استخدام الأرض", "Land use")], ["area_ha", L("المساحة (هـ)", "Area (ha)")],
+    ["date_trees", L("النخيل", "Date palms")], ["citrus_trees", L("الحمضيات", "Citrus")], ["mango_trees", L("المانجو", "Mango")],
+    ["prod_g1", L("درجة أولى (طن)", "Grade 1 (t)")], ["prod_g2", L("درجة ثانية (طن)", "Grade 2 (t)")], ["prod_g3", L("درجة ثالثة (طن)", "Grade 3 (t)")], ["prod_total", L("إجمالي الإنتاج (طن)", "Total production (t)")],
+    ["prod_quality", L("الجودة", "Quality")], ["varieties", L("الأصناف", "Varieties")], ["wells_active", L("آبار نشطة", "Active wells")], ["wells_inactive", L("آبار متوقفة", "Inactive wells")],
+    ["wells_total", L("إجمالي الآبار", "Total wells")], ["meters_total", L("العدادات", "Meters")], ["meters_working", L("عدادات تعمل", "Meters working")], ["meters_not_working", L("عدادات لا تعمل", "Meters not working")],
+    ["lease_status", L("حالة التأجير", "Lease status")], ["expropriation", L("حالة النزع", "Expropriation")], ["deserted", L("مرشحة للترك", "To be deserted")],
+    ["capex", L("التكلفة الرأسمالية (ر.س)", "CAPEX (SAR)")], ["opex", L("التشغيل السنوي (ر.س)", "OPEX/yr (SAR)")], ["rev_y3", L("إيراد السنة 3 (ر.س)", "Year-3 revenue (SAR)")],
+    ["lat", L("خط العرض", "Latitude")], ["lng", L("خط الطول", "Longitude")],
+  ];
+  async function exportFarms(kind, list) {
+    if (!list.length) return;
+    const stamp = new Date().toISOString().slice(0, 10);
+    const codes = new Set(list.map((f) => f.code));
+    const farmRows = list.map((f) => Object.fromEntries(FARM_COLS().map(([k, l]) => [l, f[k] ?? ""])));
+    if (kind === "csv") {
+      const keys = FARM_COLS().map((c) => c[1]);
       const q = (v) => (v == null ? "" : /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
-      const csv = "﻿" + [keys.join(","), ...rows.map((f) => keys.map((k) => q(f[k])).join(","))].join("\r\n");
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-      a.download = `farms-${new Date().toISOString().slice(0, 10)}.csv`;
-      a.click();
-      URL.revokeObjectURL(a.href);
-    };
+      download(`alula-farms-${stamp}.csv`, new Blob(["﻿" + [keys.join(","), ...farmRows.map((r) => keys.map((k) => q(r[k])).join(","))].join("\r\n")], { type: "text/csv;charset=utf-8" }));
+      return;
+    }
+    if (kind === "xlsx") {
+      if (!window.XLSX) await loadScript("https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js");
+      const [meters, wells] = await Promise.all([load("meters.json"), load("wells.json")]);
+      const mRows = meters.filter((m) => codes.has(m.farm_code)).map((m) => ({
+        [L("رمز المزرعة", "Farm code")]: m.farm_code, [L("رقم العداد", "Meter no.")]: m.meter_no, [L("الحالة", "Status")]: t(m.status), [L("مفصول؟", "Disconnected?")]: t(m.disconnected),
+        [L("خط العرض", "Latitude")]: m.lat, [L("خط الطول", "Longitude")]: m.lng, [L("التفاصيل", "Details")]: m.details ?? "",
+      }));
+      const wRows = wells.filter((w) => codes.has(w.farm_code)).map((w) => ({
+        [L("رمز المزرعة", "Farm code")]: w.farm_code, [L("اسم البئر", "Well")]: w.name, [L("التصنيف", "Category")]: w.category,
+        [L("خط العرض", "Latitude")]: w.lat, [L("خط الطول", "Longitude")]: w.lng, [L("أقرب عداد", "Nearest meter")]: w.nearest_meter ?? "",
+      }));
+      const wb = window.XLSX.utils.book_new();
+      const add = (rows, name) => window.XLSX.utils.book_append_sheet(wb, window.XLSX.utils.json_to_sheet(rows.length ? rows : [{ "-": "" }]), name);
+      add(farmRows, L("المزارع", "Farms"));
+      add(mRows, L("العدادات", "Meters"));
+      add(wRows, L("الآبار", "Wells"));
+      if (LANG === "ar") wb.Workbook = { Views: [{ RTL: true }] };
+      window.XLSX.writeFile(wb, `alula-farms-${stamp}.xlsx`);
+      return;
+    }
+    const shapes = await load("farm-shapes.json");
+    const byCode = new Map(shapes.features.map((s) => [s.properties.code, s.geometry]));
+    const feats = list.map((f) => ({
+      type: "Feature",
+      properties: Object.fromEntries(FARM_COLS().filter(([k]) => !["lat", "lng"].includes(k)).map(([k]) => [k, f[k] ?? null])),
+      geometry: byCode.get(f.code) || (f.lat != null ? { type: "Point", coordinates: [f.lng, f.lat] } : null),
+    })).filter((x) => x.geometry);
+    if (kind === "geojson") {
+      download(`alula-farms-${stamp}.geojson`, new Blob([JSON.stringify({ type: "FeatureCollection", features: feats })], { type: "application/geo+json" }));
+      return;
+    }
+    const x = (s) => String(s ?? "").replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" })[c]);
+    const ring = (r) => `<LinearRing><coordinates>${r.map((c) => c.join(",")).join(" ")}</coordinates></LinearRing>`;
+    const poly = (p) => `<Polygon><outerBoundaryIs>${ring(p[0])}</outerBoundaryIs>${p.slice(1).map((r) => `<innerBoundaryIs>${ring(r)}</innerBoundaryIs>`).join("")}</Polygon>`;
+    const geom = (g) => g.type === "Point" ? `<Point><coordinates>${g.coordinates.join(",")}</coordinates></Point>`
+      : g.type === "Polygon" ? poly(g.coordinates) : g.type === "MultiPolygon" ? `<MultiGeometry>${g.coordinates.map(poly).join("")}</MultiGeometry>` : "";
+    const kml = `<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>${NAME}</name>
+<Style id="f"><LineStyle><color>ff2fd2f2</color><width>2</width></LineStyle><PolyStyle><color>4d2fd2f2</color></PolyStyle></Style>
+${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f</styleUrl><ExtendedData>${Object.entries(f.properties).map(([k, v]) => `<Data name="${x(k)}"><value>${x(v)}</value></Data>`).join("")}</ExtendedData>${geom(f.geometry)}</Placemark>`).join("\n")}
+</Document></kml>`;
+    download(`alula-farms-${stamp}.kml`, new Blob([kml], { type: "application/vnd.google-earth.kml+xml" }));
   }
 
   // ------------------------------------------------------------ leaflet helpers
-  const SAT = () => L_.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 20, maxNativeZoom: 19, attribution: "Esri World Imagery" });
+  const SAT = () => L_.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 20, maxNativeZoom: 17, attribution: "Esri World Imagery" });
   const OSM = () => L_.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 20, maxNativeZoom: 19, attribution: "© OpenStreetMap" });
   // Leaflet can initialise against a 0px-wide container; re-measure on resize and run `onFirstSize` once it is real.
   function watchSize(map, el, onFirstSize) {
@@ -392,177 +621,326 @@
     ro.observe(el);
     return () => ro.disconnect();
   }
+  // pin-shaped markers with an icon (meters / wells)
+  const MK = { "meter-ok": "meter", "meter-bad": "meter", well: "droplet", "well-off": "droplet", "well-new": "droplet" };
+  const mkIcon = (kind) => L_.divIcon({ className: "mk-icon", html: `<div class="mk ${kind}">${ico(MK[kind])}</div>`, iconSize: [26, 26], iconAnchor: [13, 30], popupAnchor: [0, -28], tooltipAnchor: [12, -18] });
+  const wellKind = (cat) => (cat === "Active" ? "well" : cat === "Inactive" ? "well-off" : "well-new");
+  const fmtDist = (m) => (m < 1000 ? `${fmt(m, 1)} ${L("م", "m")}` : `${fmt(m / 1000, 2)} ${L("كم", "km")}`);
   const popupRows = (rows) => `<table>${rows.map(([k, v]) => `<tr><td style="color:#6b7280;padding-inline-end:12px">${k}</td><td><b>${v}</b></td></tr>`).join("")}</table>`;
   const farmPopup = (f) => `<div dir="${DIR()}" style="min-width:220px"><div style="font-size:15px;font-weight:700">${esc(f.code)}</div><div style="color:#6b7280;margin-bottom:6px">${esc(f.project)}</div>${popupRows([
     [L("الجهة", "Side"), esc(t(f.side))], [L("المساحة", "Area"), `${fmt(f.area_ha, 2)} ${U.ha()}`], [L("النخيل", "Palms"), fmt(f.date_trees)], [L("الإنتاج", "Production"), `${fmt(f.prod_total, 2)} ${U.t()}`],
     [L("الجودة", "Quality"), esc(t(f.prod_quality))], [L("التأجير", "Lease"), esc(t(f.lease_status))], [L("الآبار", "Wells"), fmt(f.wells_total)], [L("العدادات", "Meters"), fmt(f.meters_total)],
   ])}<a href="#/farm/${encodeURIComponent(f.code)}" style="display:inline-block;margin-top:8px;font-weight:700;color:${C.green}">${L("فتح ملف المزرعة", "Open farm profile")}</a></div>`;
   const propsPopup = (title, p) => {
-    const rows = Object.entries(p).filter(([k, v]) => !k.startsWith("_") && k !== "Name" && v !== null && v !== "").slice(0, 12).map(([k, v]) => [esc(k), esc(v)]);
+    const rows = Object.entries(p).filter(([k, v]) => !k.startsWith("_") && k !== "Name" && v !== null && v !== "" && v !== undefined).slice(0, 12).map(([k, v]) => [esc(k), esc(v)]);
     const link = p._farm;
     return `<div dir="${DIR()}" style="max-width:300px"><b>${esc(title)}</b>${popupRows(rows)}${link ? `<a href="#/farm/${encodeURIComponent(link)}" style="font-weight:700;color:${C.green}">${L("ملف المزرعة", "Farm profile")} ${esc(link)}</a>` : ""}</div>`;
   };
-
-  // ------------------------------------------------------------ map page
-  const PROD_STEPS = [[0, "#EFEBE9"], [0.5, "#D7CCC8"], [2, "#A1887F"], [5, "#66BB6A"], [10, C.green]];
-  const prodColor = (v) => {
-    if (v == null) return NODATA;
-    let c = PROD_STEPS[0][1];
-    for (const [m, col] of PROD_STEPS) if (v >= m) c = col;
-    return c;
+  // point-in-polygon (ray casting) for GeoJSON Polygon / MultiPolygon, coordinates in [lng, lat]
+  const inRing = (pt, ring) => {
+    let inside = false;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const [xi, yi] = ring[i], [xj, yj] = ring[j];
+      if (yi > pt[1] !== yj > pt[1] && pt[0] < ((xj - xi) * (pt[1] - yi)) / (yj - yi) + xi) inside = !inside;
+    }
+    return inside;
   };
-  const colorBy = (f, mode) => mode === "lease" ? LEASE[f.lease_status] || NODATA : mode === "quality" ? QUALITY[f.prod_quality] || NODATA : mode === "side" ? SIDE[f.side] || NODATA : prodColor(f.prod_total);
-  const LEGENDS = () => ({
-    lease: [...Object.entries(LEASE).map(([k, c]) => [t(k), c]), [L("غير محدد", "Not specified"), NODATA]],
-    quality: [[t("High"), QUALITY.High], [t("Medium"), QUALITY.Medium], [t("Low"), QUALITY.Low], [L("غير مصنفة", "Unclassified"), NODATA]],
-    side: [...Object.entries(SIDE).map(([k, c]) => [t(k), c]), [L("غير محدد", "Not specified"), NODATA]],
-    production: [...PROD_STEPS.map(([m, c], i) => [i < PROD_STEPS.length - 1 ? `${m} – ${PROD_STEPS[i + 1][0]} ${U.t()}` : `${m}+ ${U.t()}`, c]), [L("لا توجد بيانات", "No data"), NODATA]],
-  });
+  const inGeom = (pt, g) => g.type === "Polygon" ? inRing(pt, g.coordinates[0]) && !g.coordinates.slice(1).some((h) => inRing(pt, h))
+    : g.type === "MultiPolygon" ? g.coordinates.some((p) => inGeom(pt, { type: "Polygon", coordinates: p })) : false;
+  // "26.6897, 37.9071" / "37.9071 26.6897" / 26°41'23"N 37°54'26"E  ->  [lat, lng]
+  function parseCoords(s) {
+    const dms = [...s.matchAll(/(\d+(?:\.\d+)?)\s*°\s*(?:(\d+(?:\.\d+)?)\s*['′]\s*)?(?:(\d+(?:\.\d+)?)\s*["″]\s*)?([NSEW])?/gi)];
+    let nums;
+    if (dms.length >= 2) nums = dms.slice(0, 2).map((m) => (+m[1] + (+m[2] || 0) / 60 + (+m[3] || 0) / 3600) * (/[SW]/i.test(m[4] || "") ? -1 : 1));
+    else nums = (s.match(/-?\d+(?:\.\d+)?/g) || []).map(Number).slice(0, 2);
+    if (nums.length < 2 || nums.some((n) => !Number.isFinite(n))) return null;
+    let [a, b] = nums;
+    // AlUla: lat ≈ 26, lng ≈ 38 — if the first number looks like a longitude, swap
+    if (Math.abs(a) > 90 || (a > 34 && b < 34)) [a, b] = [b, a];
+    return Math.abs(a) <= 90 && Math.abs(b) <= 180 ? [a, b] : null;
+  }
+
+  // ------------------------------------------------------------ map page (Agriculture Center "Main Map" layout)
+  const PROD_STEPS = [[0, "#EFEBE9"], [0.5, "#D7CCC8"], [2, "#A1887F"], [5, "#66BB6A"], [10, C.green]];
+  const prodBand = (v) => {
+    if (v == null) return -1;
+    let i = 0;
+    PROD_STEPS.forEach(([m], k) => { if (v >= m) i = k; });
+    return i;
+  };
+  // category of a farm under each colour mode -> [key, label, colour]
+  const catOf = (f, mode) => {
+    if (mode === "lease") return f.lease_status ? [f.lease_status, t(f.lease_status), LEASE[f.lease_status] || NODATA] : ["", L("غير محدد", "Not specified"), NODATA];
+    if (mode === "quality") return f.prod_quality ? [f.prod_quality, t(f.prod_quality), QUALITY[f.prod_quality] || NODATA] : ["", L("غير مصنفة", "Unclassified"), NODATA];
+    if (mode === "side") return f.side ? [f.side, t(f.side), SIDE[f.side] || NODATA] : ["", L("غير محدد", "Not specified"), NODATA];
+    const b = prodBand(f.prod_total);
+    if (b < 0) return ["none", L("لا توجد بيانات إنتاج", "No production data"), NODATA];
+    const [m, c] = PROD_STEPS[b];
+    return [String(b), b < PROD_STEPS.length - 1 ? `${m} – ${PROD_STEPS[b + 1][0]} ${U.t()}` : `${m}+ ${U.t()}`, c];
+  };
   const OVERLAY_COLORS = ["#7b4fa3", "#d0632a", "#2a8fa8", "#a83a6b", "#5d7d2a", "#8a6a2a", "#3a4fa8", "#a8762a", "#2aa86b", "#666"];
 
   async function mapPage(p) {
     const scope = p.scope === "all" ? "all" : "plan";
-    const [shapes, layers] = await Promise.all([load("farm-shapes.json"), load("layers.json")]);
+    const [shapes, layers, meters, wells, wpts] = await Promise.all([load("farm-shapes.json"), load("layers.json"), load("meters.json"), load("wells.json"), load("well-points.json")]);
+    let mode = p.color || "lease";
+    const hidden = new Set();
+    const show = { meterOk: true, meterBad: true, wellReg: true, wellActive: true, wellInactive: true, wellOther: true };
     app.innerHTML = `
-      ${head(L("خريطة المزارع", "Farms map"), L("حدود المزارع على الصور الفضائية مع العدادات والآبار وطبقات التخطيط", "Farm boundaries on satellite imagery with meters, wells and planning layers"), scopePick(scope, "/map"))}
-      <div class="mapbox"><div class="map" id="map"></div>
-        <div class="card mpanel" id="mpanel">
-          <form id="msearch" style="display:flex;gap:8px"><input class="field" style="flex:1;min-width:0" name="q" value="${esc(p.farm || "")}" placeholder="${L("رمز المزرعة…", "Farm code…")}" aria-label="${L("بحث عن مزرعة", "Find a farm")}" /><button class="btn btn-primary">${L("بحث", "Find")}</button></form>
-          <label style="display:block"><span class="muted" style="font-size:12px">${L("تلوين المزارع حسب", "Colour farms by")}</span>
-            <select id="mode" class="field" style="width:100%;margin-top:4px"><option value="lease">${L("حالة التأجير", "Lease status")}</option><option value="production">${L("كمية الإنتاج", "Production")}</option><option value="quality">${L("جودة التمور", "Date quality")}</option><option value="side">${L("الجهة (شمال / جنوب)", "Side (North / South)")}</option></select></label>
-          <div class="lg" id="lg"></div>
-          <div class="sec"><div class="muted" style="font-size:12px;margin-bottom:6px">${L("النقاط", "Points")}</div>
-            <label><input type="checkbox" data-pt="meters" checked /><span class="sw" style="background:#f2c230;border-radius:50%"></span>${L("عدادات الكهرباء", "Power meters")}</label>
-            <label><input type="checkbox" data-pt="wells" /><span class="sw" style="background:#2a9fd6;border-radius:50%"></span>${L("آبار المزارع (سجل الآبار)", "Farm wells (wells register)")}</label>
-            <label><input type="checkbox" data-pt="newwells" /><span class="sw" style="background:#9b59d0;border-radius:50%"></span>${L("الآبار الجديدة المحدّثة", "Newly surveyed wells")}</label>
+      <div class="crumb"><b>${L("لوحة المؤشرات", "Dashboard")}</b> &gt;&gt; ${L("الخريطة الرئيسية", "Main map")}</div>
+      <div class="mapwrap" id="mapwrap">
+        <aside class="mside" id="mside"></aside>
+        <div class="mmain">
+          <div class="map" id="map"></div>
+          <button class="mside-tab" id="mtab" aria-label="${L("إظهار/إخفاء اللوحة", "Toggle panel")}">${ico("side")}</button>
+          <div class="mtop">
+            <form class="pill" id="msearch">
+              <select id="stype" aria-label="${L("نوع البحث", "Search type")}"><option value="farm">${L("رقم المزرعة", "Farm code")}</option><option value="meter">${L("رقم العداد", "Meter no.")}</option><option value="coord">${L("الإحداثيات", "Coordinates")}</option></select>
+              <span class="sep"></span>${ico("search")}<input id="sq" value="${esc(p.farm || "")}" placeholder="${L("أدخل رقم المزرعة", "Enter the farm code")}" aria-label="${L("بحث", "Search")}" /><button>${L("بحث", "Go")}</button>
+            </form>
+            <label class="pill"><select data-nav aria-label="${L("النطاق", "Scope")}"><option value="${href("/map", { color: p.color })}" ${scope !== "all" ? "selected" : ""}>${L("المزارع المنزوعة", "Expropriated farms")}</option><option value="${href("/map", { scope: "all", color: p.color })}" ${scope === "all" ? "selected" : ""}>${L("كل المزارع (سجل الآبار)", "All farms (wells register)")}</option></select></label>
+            <label class="pill"><select id="mode" aria-label="${L("تلوين المزارع", "Colour farms")}">${[["lease", L("حالة التأجير", "Lease status")], ["production", L("كمية الإنتاج", "Production")], ["quality", L("جودة التمور", "Date quality")], ["side", L("الجهة", "Side")]].map(([v, l]) => `<option value="${v}" ${mode === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
           </div>
-          <details class="sec"><summary class="muted" style="cursor:pointer;font-size:12px">${L("طبقات إضافية", "Extra layers")} (${layers.length})</summary>
-            <div style="margin-top:8px;display:grid;gap:4px">${layers.map((l) => `<label><input type="checkbox" data-ov="${esc(l.key)}" /><span style="flex:1">${esc(tt(l.title))}</span><span class="muted num" style="font-size:12px">${fmt(l.features)}</span></label>`).join("")}</div></details>
-          <div class="sec muted" style="font-size:12px" id="mcount"></div>
+          <div class="mtools">
+            <div class="tgroup"><button id="zin" title="${L("تكبير", "Zoom in")}">+</button><button id="zout" title="${L("تصغير", "Zoom out")}">−</button><button id="zfit" title="${L("عرض كل المزارع", "Fit all farms")}">${ico("home")}</button></div>
+            <div class="tgroup"><button id="tmeasure" title="${L("قياس المسافة بين نقطتين", "Measure distance between two points")}">${ico("measure")}</button><button id="tbase" title="${L("تبديل الخريطة الأساسية", "Switch basemap")}">${ico("globe")}</button></div>
+          </div>
+          <div class="mhint" id="mhint" hidden></div>
         </div>
-        <button class="btn mtoggle" id="mtoggle">${L("إخفاء اللوحة", "Hide panel")}</button>
-        <div class="card mstatus" id="mstatus" hidden></div>
       </div>`;
-    const status = (msg) => {
-      const el = document.getElementById("mstatus");
-      if (!el) return;
-      el.hidden = !msg;
-      el.textContent = msg || "";
-    };
+
     const el = document.getElementById("map");
-    const map = L_.map(el, { preferCanvas: true, zoomControl: false }).setView([26.7, 37.95], 11);
-    const corner = LANG === "en" ? "topright" : "topleft"; // opposite side from the filter panel
-    L_.control.zoom({ position: corner }).addTo(map);
+    const wrap = document.getElementById("mapwrap");
+    const map = L_.map(el, { preferCanvas: true, zoomControl: false, attributionControl: true }).setView([26.7, 37.95], 11);
     const sat = SAT().addTo(map);
-    L_.control.layers({ [L("صور فضائية", "Satellite")]: sat, [L("خريطة شوارع", "Streets")]: OSM() }, {}, { position: corner }).addTo(map);
+    const osm = OSM();
     L_.control.scale({ imperial: false, position: "bottomleft" }).addTo(map);
 
-    let mode = "lease";
+    // ---- farms
     const index = new Map();
     const withShape = new Set(shapes.features.map((f) => f.properties.code));
-    const fc = {
-      type: "FeatureCollection",
-      features: [
-        ...shapes.features.filter((s) => scope === "all" || BY_CODE.get(s.properties.code)?.in_plan).map((s) => ({ ...s, properties: BY_CODE.get(s.properties.code) })),
-        ...(scope === "all" ? FARMS.filter((f) => !withShape.has(f.code) && f.lat != null).map((f) => ({ type: "Feature", properties: f, geometry: { type: "Point", coordinates: [f.lng, f.lat] } })) : []),
-      ],
-    };
-    const farms = L_.geoJSON(fc, {
-      style: (f) => ({ color: colorBy(f.properties, mode), weight: 1.6, fillColor: colorBy(f.properties, mode), fillOpacity: 0.45 }),
-      pointToLayer: (f, ll) => L_.circleMarker(ll, { radius: 4, color: "#fff", weight: 1, fillColor: colorBy(f.properties, mode), fillOpacity: 0.9 }),
+    const feats = [
+      ...shapes.features.filter((s) => scope === "all" || BY_CODE.get(s.properties.code)?.in_plan).map((s) => ({ ...s, properties: BY_CODE.get(s.properties.code) })),
+      ...(scope === "all" ? FARMS.filter((f) => !withShape.has(f.code) && f.lat != null).map((f) => ({ type: "Feature", properties: f, geometry: { type: "Point", coordinates: [f.lng, f.lat] } })) : []),
+    ];
+    const all = L_.geoJSON({ type: "FeatureCollection", features: feats }, {
+      style: (f) => { const c = catOf(f.properties, mode)[2]; return { color: c, weight: 1.6, fillColor: c, fillOpacity: 0.45 }; },
+      pointToLayer: (f, ll) => L_.circleMarker(ll, { radius: 4, color: "#fff", weight: 1, fillColor: catOf(f.properties, mode)[2], fillOpacity: 0.9 }),
       onEachFeature: (f, l) => {
         l.bindPopup(() => farmPopup(f.properties), { maxWidth: 320 });
         l.bindTooltip(f.properties.code, { sticky: true, direction: "top" });
         index.set(f.properties.code, l);
       },
-    }).addTo(map);
-    document.getElementById("mcount").innerHTML = L(`معروض <b class="num">${fmt(fc.features.length)}</b> مزرعة`, `Showing <b class="num">${fmt(fc.features.length)}</b> farms`);
+    });
+    const farmsLayer = L_.featureGroup().addTo(map);
+    function refreshFarms() {
+      all.eachLayer((l) => {
+        const [k, , c] = catOf(l.feature.properties, mode);
+        l.setStyle(l instanceof L_.CircleMarker ? { fillColor: c } : { color: c, fillColor: c });
+        if (hidden.has(k)) farmsLayer.removeLayer(l);
+        else farmsLayer.addLayer(l);
+      });
+    }
+    refreshFarms();
 
+    // ---- point layers with icons
+    const meterIdx = new Map();
+    const mOk = L_.layerGroup(), mBad = L_.layerGroup();
+    for (const m of meters) {
+      if (m.lat == null) continue;
+      const ok = m.status === "Working";
+      const mk = L_.marker([m.lat, m.lng], { icon: mkIcon(ok ? "meter-ok" : "meter-bad"), title: m.meter_no })
+        .bindPopup(() => propsPopup(`${L("عداد", "Meter")} ${m.meter_no}`, { [L("المزرعة", "Farm")]: m.farm_code, [L("الحالة", "Status")]: t(m.status), [L("مفصول؟", "Disconnected?")]: t(m.disconnected), [L("الإحداثيات", "Coordinates")]: `${m.lat.toFixed(6)}, ${m.lng.toFixed(6)}`, _farm: m.farm_code }));
+      (ok ? mOk : mBad).addLayer(mk);
+      meterIdx.set(m.meter_no.toUpperCase(), mk);
+    }
+    const wReg = L_.layerGroup(wpts.map(([code, lng, lat]) => {
+      const f = BY_CODE.get(code) || {};
+      return L_.marker([lat, lng], { icon: mkIcon(f.wells_active ? "well" : "well-off") })
+        .bindPopup(() => propsPopup(`${L("آبار المزرعة", "Wells of farm")} ${code}`, { [L("آبار نشطة", "Active wells")]: f.wells_active, [L("آبار متوقفة", "Inactive wells")]: f.wells_inactive, [L("المنطقة", "Region")]: f.region, _farm: code }));
+    }));
+    const wGroups = { Active: L_.layerGroup(), Inactive: L_.layerGroup(), other: L_.layerGroup() };
+    for (const w of wells) {
+      if (w.lat == null) continue;
+      const g = w.category === "Active" || w.category === "Inactive" ? w.category : "other";
+      wGroups[g].addLayer(L_.marker([w.lat, w.lng], { icon: mkIcon(wellKind(w.category)) })
+        .bindPopup(() => propsPopup(w.name, { [L("التصنيف", "Category")]: w.category, [L("المزرعة", "Farm")]: w.farm_code, [L("أقرب عداد", "Nearest meter")]: w.nearest_meter, _farm: w.farm_code })));
+    }
+    const pointLayers = { meterOk: mOk, meterBad: mBad, wellReg: wReg, wellActive: wGroups.Active, wellInactive: wGroups.Inactive, wellOther: wGroups.other };
+    // icons only from street-level zoom: at overview they pile up and hide the farm boundaries
+    const ICON_ZOOM = 14;
+    const refreshPoints = () => Object.entries(pointLayers).forEach(([k, lyr]) => (show[k] && map.getZoom() >= ICON_ZOOM ? lyr.addTo(map) : lyr.remove()));
+    map.on("zoomend", refreshPoints);
+    refreshPoints();
+
+    // ---- side panel (summary + legend toggles, like the platform's "Main Map" panel)
+    const ovOn = new Set();
+    const ovLayers = {};
+    function renderSide() {
+      const inScope = feats.map((f) => f.properties);
+      const cats = [...groupBy(inScope, (f) => catOf(f, mode)[0])].map(([k, a]) => [k, catOf(a[0], mode)[1], catOf(a[0], mode)[2], a.length]).sort((a, b) => b[3] - a[3]);
+      const ptRow = (key, kind, label, n) => `<div class="mrow ${show[key] ? "" : "off"}" data-pt="${key}"><span class="ico-b mk ${kind}" style="transform:none;border-radius:6px;border:0;box-shadow:none">${ico(MK[kind])}</span><b class="num">${fmt(n)}</b><span>${label}</span></div>`;
+      document.getElementById("mside").innerHTML = `
+        <h1>${L("الخريطة الرئيسية", "Main map")}</h1>
+        <div class="mcard"><div class="mcard-h"><span>${L("المزارع", "Farms")}</span><span class="cnt num">${fmt(inScope.length)}</span></div>
+          <div class="msub">${document.querySelector(`#mode option[value="${mode}"]`)?.textContent || ""} — ${L("انقر للإظهار/الإخفاء", "click to show/hide")}</div>
+          ${cats.map(([k, label, c, n]) => `<div class="mrow ${hidden.has(k) ? "off" : ""}" data-cat="${esc(k)}"><span class="dot" style="background:${c}"></span><b class="num">${fmt(n)}</b><span>${esc(label)}</span></div>`).join("")}
+        </div>
+        <div class="mcard"><div class="mcard-h"><span>${L("عدادات الكهرباء", "Power meters")}</span><span class="cnt num">${fmt(mOk.getLayers().length + mBad.getLayers().length)}</span></div>
+          ${ptRow("meterOk", "meter-ok", L("تعمل", "Working"), mOk.getLayers().length)}${ptRow("meterBad", "meter-bad", L("لا تعمل", "Not working"), mBad.getLayers().length)}
+        </div>
+        <div class="mcard"><div class="mcard-h"><span>${L("الآبار داخل المزارع", "Wells inside farms")}</span><span class="cnt num">${fmt(wReg.getLayers().length + wells.length)}</span></div>
+          <div class="msub">${L("الآبار الواقعة داخل حدود المزارع أو على بعد 10 م منها. تظهر الأيقونات عند التكبير.", "Wells inside farm boundaries or within 10 m. Icons appear when you zoom in.")}</div>
+          ${ptRow("wellActive", "well", L("آبار ممسوحة — نشطة", "Surveyed — active"), wGroups.Active.getLayers().length)}
+          ${ptRow("wellInactive", "well-off", L("آبار ممسوحة — متوقفة", "Surveyed — inactive"), wGroups.Inactive.getLayers().length)}
+          ${ptRow("wellOther", "well-new", L("آبار ممسوحة — خارج النطاق", "Surveyed — out of scope"), wGroups.other.getLayers().length)}
+          ${ptRow("wellReg", "well", L("مواقع آبار سجل الآبار", "Wells-register locations"), wReg.getLayers().length)}
+        </div>
+        <div class="mcard"><div class="mcard-h"><span>${L("طبقات إضافية", "Extra layers")}</span><span class="cnt num">${layers.length}</span></div>
+          ${layers.map((l, i) => `<label class="mrow" style="cursor:pointer"><input type="checkbox" data-ov="${esc(l.key)}" ${ovOn.has(l.key) ? "checked" : ""} style="accent-color:var(--main)" /><span class="dot" style="background:${OVERLAY_COLORS[i % OVERLAY_COLORS.length]}"></span><span style="flex:1">${esc(tt(l.title))}</span><small class="muted num">${fmt(l.features)}</small></label>`).join("")}
+        </div>`;
+    }
+    renderSide();
+    const side = document.getElementById("mside");
+    side.addEventListener("click", (e) => {
+      const c = e.target.closest("[data-cat]");
+      const pt = e.target.closest("[data-pt]");
+      if (c) { hidden.has(c.dataset.cat) ? hidden.delete(c.dataset.cat) : hidden.add(c.dataset.cat); refreshFarms(); renderSide(); }
+      if (pt) { show[pt.dataset.pt] = !show[pt.dataset.pt]; refreshPoints(); renderSide(); }
+    });
+    side.addEventListener("change", async (e) => {
+      const key = e.target.dataset.ov;
+      if (!key) return;
+      if (!e.target.checked) { ovOn.delete(key); ovLayers[key]?.remove(); return; }
+      ovOn.add(key);
+      if (!ovLayers[key]) {
+        const i = layers.findIndex((l) => l.key === key);
+        const color = OVERLAY_COLORS[i % OVERLAY_COLORS.length];
+        ovLayers[key] = L_.geoJSON(await load(`layers/${key}.json`), {
+          style: () => ({ color, weight: 1.4, fillColor: color, fillOpacity: 0.12, dashArray: "4 3" }),
+          pointToLayer: (_f, ll) => L_.circleMarker(ll, { radius: 3, color, fillColor: color, fillOpacity: 0.8, weight: 1 }),
+          onEachFeature: (f, l) => l.bindPopup(() => propsPopup(f.properties.Name || tt(layers[i].title), f.properties)),
+        });
+      }
+      ovLayers[key].addTo(map);
+      farmsLayer.bringToFront();
+    });
+    document.getElementById("mtab").onclick = () => { side.classList.toggle("closed"); setTimeout(() => map.invalidateSize(), 320); };
+    document.getElementById("mode").onchange = (e) => {
+      mode = e.target.value;
+      hidden.clear();
+      refreshFarms();
+      renderSide();
+      history.replaceState(null, "", href("/map", { scope: p.scope, color: mode === "lease" ? undefined : mode }));
+    };
+
+    // ---- tools
+    const fitAll = () => farmsLayer.getBounds().isValid() && map.fitBounds(farmsLayer.getBounds(), { padding: [30, 30] });
+    document.getElementById("zin").onclick = () => map.zoomIn();
+    document.getElementById("zout").onclick = () => map.zoomOut();
+    document.getElementById("zfit").onclick = fitAll;
+    document.getElementById("tbase").onclick = () => {
+      if (map.hasLayer(sat)) { map.removeLayer(sat); osm.addTo(map); } else { map.removeLayer(osm); sat.addTo(map); }
+    };
+    const hint = document.getElementById("mhint");
+    const say = (html) => { hint.hidden = !html; hint.innerHTML = html || ""; };
+
+    // distance between two clicked points
+    let measuring = false;
+    const mLayer = L_.layerGroup().addTo(map);
+    let mPts = [];
+    const mDot = (ll) => L_.circleMarker(ll, { radius: 6, color: "#fff", weight: 2, fillColor: "#298459", fillOpacity: 1, interactive: false });
+    function setMeasure(on) {
+      measuring = on;
+      wrap.classList.toggle("measuring", on);
+      document.getElementById("tmeasure").classList.toggle("on", on);
+      mLayer.clearLayers();
+      mPts = [];
+      say(on ? `${ico("measure")} ${L("انقر على النقطة الأولى في الخريطة", "Click the first point on the map")} <button id="mclose">${L("إغلاق", "Close")}</button>` : "");
+    }
+    document.getElementById("tmeasure").onclick = () => setMeasure(!measuring);
+    hint.addEventListener("click", (e) => {
+      if (e.target.id === "mclose") setMeasure(false);
+      if (e.target.id === "mnew") setMeasure(true);
+    });
+    map.on("click", (e) => {
+      if (!measuring) return;
+      if (mPts.length === 2) { mLayer.clearLayers(); mPts = []; }
+      mPts.push(e.latlng);
+      mDot(e.latlng).addTo(mLayer);
+      if (mPts.length === 1) {
+        say(`${ico("measure")} ${L("انقر على النقطة الثانية", "Click the second point")} <button id="mclose">${L("إغلاق", "Close")}</button>`);
+        return;
+      }
+      const d = map.distance(mPts[0], mPts[1]);
+      L_.polyline(mPts, { color: "#ffffff", weight: 5, opacity: 0.9, interactive: false }).addTo(mLayer);
+      L_.polyline(mPts, { color: "#298459", weight: 3, dashArray: "6 6", interactive: false }).addTo(mLayer);
+      const mid = L_.latLng((mPts[0].lat + mPts[1].lat) / 2, (mPts[0].lng + mPts[1].lng) / 2);
+      L_.tooltip({ permanent: true, direction: "top", className: "measure-tip" }).setLatLng(mid).setContent(fmtDist(d)).addTo(mLayer);
+      say(`${L("المسافة", "Distance")}: <b class="num">${fmtDist(d)}</b> <button id="mnew">${L("قياس جديد", "New measurement")}</button><button id="mclose">${L("إغلاق", "Close")}</button>`);
+    });
+    // farm / meter popups must not swallow measuring clicks
+    farmsLayer.on("click", (e) => { if (measuring) { e.layer.closePopup(); map.fire("click", { latlng: e.latlng }); } });
+
+    // ---- search: farm code / meter number / coordinates
+    const sq = document.getElementById("sq");
+    const stype = document.getElementById("stype");
+    const PH = { farm: L("أدخل رقم المزرعة", "Enter the farm code"), meter: L("أدخل رقم العداد", "Enter the meter number"), coord: L("مثال: 26.6897, 37.9071", "e.g. 26.6897, 37.9071") };
+    stype.onchange = () => { sq.placeholder = PH[stype.value]; sq.value = ""; sq.focus(); };
+    const pinLayer = L_.layerGroup().addTo(map);
     const zoomTo = (l) => {
       if (l.getBounds) map.fitBounds(l.getBounds(), { maxZoom: 17, padding: [60, 60] });
       else map.setView(l.getLatLng(), 17);
       setTimeout(() => l.openPopup(), 350);
     };
+    function runSearch() {
+      const q = sq.value.trim();
+      if (!q) return;
+      pinLayer.clearLayers();
+      if (stype.value === "farm") {
+        const Q = q.toUpperCase();
+        const hit = index.get(Q) || [...index.entries()].find(([k]) => k.includes(Q))?.[1];
+        if (!hit) return say(`${L("لم يتم العثور على المزرعة", "Farm not found")}: ${esc(q)} <button id="mclose">${L("إغلاق", "Close")}</button>`);
+        if (!farmsLayer.hasLayer(hit)) { hidden.clear(); refreshFarms(); renderSide(); }
+        say("");
+        zoomTo(hit);
+      } else if (stype.value === "meter") {
+        const Q = q.toUpperCase().replace(/\s+/g, "");
+        const hit = meterIdx.get(Q) || [...meterIdx.entries()].find(([k]) => k.includes(Q))?.[1];
+        if (!hit) return say(`${L("لم يتم العثور على العداد", "Meter not found")}: ${esc(q)} <button id="mclose">${L("إغلاق", "Close")}</button>`);
+        show.meterOk = show.meterBad = true;
+        refreshPoints();
+        renderSide();
+        say("");
+        map.setView(hit.getLatLng(), 17);
+        setTimeout(() => hit.openPopup(), 350);
+      } else {
+        const ll = parseCoords(q);
+        if (!ll) return say(`${L("صيغة الإحداثيات غير صحيحة — مثال: 26.6897, 37.9071", "Invalid coordinates — e.g. 26.6897, 37.9071")} <button id="mclose">${L("إغلاق", "Close")}</button>`);
+        const pt = [ll[1], ll[0]];
+        const inside = feats.find((f) => f.geometry.type !== "Point" && inGeom(pt, f.geometry));
+        const html = `<div dir="${DIR()}"><b>${L("الإحداثيات", "Coordinates")}</b><div class="num">${ll[0].toFixed(6)}, ${ll[1].toFixed(6)}</div>${inside
+          ? `<div style="margin-top:6px">${L("تقع داخل المزرعة", "Inside farm")} <a href="#/farm/${encodeURIComponent(inside.properties.code)}" style="font-weight:700;color:${C.green}">${esc(inside.properties.code)}</a></div>`
+          : `<div style="margin-top:6px;color:#6b7280">${L("لا تقع داخل حدود أي مزرعة", "Not inside any farm boundary")}</div>`}</div>`;
+        L_.marker(ll, { icon: L_.divIcon({ className: "mk-icon", html: '<div class="coord-pin"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }) }).addTo(pinLayer).bindPopup(html).openPopup();
+        map.setView(ll, 17);
+        say("");
+      }
+    }
+    document.getElementById("msearch").onsubmit = (e) => { e.preventDefault(); runSearch(); };
+
     const stop = watchSize(map, el, () => {
       const target = p.farm && index.get(p.farm.toUpperCase());
       if (target) zoomTo(target);
-      else if (farms.getBounds().isValid()) map.fitBounds(farms.getBounds(), { padding: [30, 30] });
+      else fitAll();
     });
     cleanup = () => {
       stop();
       map.remove();
     };
-
-    const drawLegend = () => (document.getElementById("lg").innerHTML = LEGENDS()[mode].map(([l, c]) => `<span><span class="sw" style="background:${c}"></span>${l}</span>`).join(""));
-    drawLegend();
-    document.getElementById("mode").onchange = (e) => {
-      mode = e.target.value;
-      drawLegend();
-      farms.eachLayer((l) => {
-        const c = colorBy(l.feature.properties, mode);
-        l.setStyle(l instanceof L_.CircleMarker ? { fillColor: c } : { color: c, fillColor: c });
-      });
-    };
-    document.getElementById("msearch").onsubmit = (e) => {
-      e.preventDefault();
-      const q = e.target.q.value.trim().toUpperCase();
-      const hit = index.get(q) || [...index.entries()].find(([k]) => k.includes(q))?.[1];
-      if (hit) {
-        status("");
-        zoomTo(hit);
-      } else status(L(`لم يتم العثور على ${q} في هذا النطاق`, `${q} not found in this scope`));
-    };
-    document.getElementById("mtoggle").onclick = (e) => {
-      const pnl = document.getElementById("mpanel");
-      pnl.hidden = !pnl.hidden;
-      e.target.textContent = pnl.hidden ? L("إظهار اللوحة", "Show panel") : L("إخفاء اللوحة", "Hide panel");
-    };
-
-    const pts = {};
-    async function togglePoints(kind, on) {
-      if (!on) return pts[kind]?.remove();
-      if (!pts[kind]) {
-        status(L("جارٍ تحميل النقاط…", "Loading points…"));
-        let feats = [];
-        if (kind === "meters") feats = (await load("meters.json")).filter((m) => m.lat != null).map((m) => [m.lat, m.lng, { [L("رقم العداد", "Meter no.")]: m.meter_no, [L("الحالة", "Status")]: t(m.status), [L("مفصول؟", "Disconnected?")]: t(m.disconnected), _farm: m.farm_code }, `${L("عداد", "Meter")} ${m.meter_no}`, m.status === "Working" ? "#f2c230" : "#e0412f", 5]);
-        else if (kind === "newwells") feats = (await load("wells.json")).filter((w) => w.lat != null).map((w) => [w.lat, w.lng, { [L("التصنيف", "Category")]: w.category, [L("أقرب عداد", "Nearest meter")]: w.nearest_meter, _farm: w.farm_code }, w.name, "#9b59d0", 4]);
-        else feats = (await load("well-points.json")).map(([code, lng, lat]) => {
-          const f = BY_CODE.get(code) || {};
-          return [lat, lng, { [L("المنطقة", "Region")]: f.region, [L("آبار نشطة", "Active wells")]: f.wells_active, [L("آبار متوقفة", "Inactive wells")]: f.wells_inactive, _farm: code }, `${L("آبار المزرعة", "Wells of farm")} ${code}`, f.wells_inactive && !f.wells_active ? "#e0412f" : "#2a9fd6", 3.5];
-        });
-        pts[kind] = L_.layerGroup(feats.map(([lat, lng, props, title, fill, r]) =>
-          L_.circleMarker([lat, lng], { radius: r, color: "#1a1a1a", weight: 0.8, fillColor: fill, fillOpacity: 0.95 }).bindPopup(() => propsPopup(title, props))));
-        status("");
-      }
-      pts[kind].addTo(map);
-    }
-    const ovs = {};
-    async function toggleOverlay(key, on) {
-      if (!on) return ovs[key]?.remove();
-      if (!ovs[key]) {
-        status(L("جارٍ تحميل الطبقة…", "Loading layer…"));
-        const i = layers.findIndex((l) => l.key === key);
-        const color = OVERLAY_COLORS[i % OVERLAY_COLORS.length];
-        ovs[key] = L_.geoJSON(await load(`layers/${key}.json`), {
-          style: () => ({ color, weight: 1.4, fillColor: color, fillOpacity: 0.12, dashArray: "4 3" }),
-          pointToLayer: (_f, ll) => L_.circleMarker(ll, { radius: 3, color, fillColor: color, fillOpacity: 0.8, weight: 1 }),
-          onEachFeature: (f, l) => l.bindPopup(() => propsPopup(f.properties.Name || tt(layers[i].title), f.properties)),
-        });
-        status("");
-      }
-      ovs[key].addTo(map);
-      farms.bringToFront();
-    }
-    document.querySelectorAll("[data-pt]").forEach((cb) => (cb.onchange = () => togglePoints(cb.dataset.pt, cb.checked)));
-    document.querySelectorAll("[data-ov]").forEach((cb) => (cb.onchange = () => toggleOverlay(cb.dataset.ov, cb.checked)));
-    togglePoints("meters", true);
   }
 
   // ------------------------------------------------------------ farm page
-  const CAT = () => ({
-    masterplan: L("المخطط والدراسات المالية", "Master plan & financial studies"), production: L("تقارير الإنتاج", "Production reports"),
-    survey: L("الحصر الميداني", "Field survey"), wells: L("الآبار", "Wells"), meters: L("عدادات الكهرباء", "Power meters"),
-  });
   const dl = (rows) => `<dl class="dl">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v ?? "—"}</dd>`).join("")}</dl>`;
 
   async function farmPage(code) {
@@ -572,17 +950,15 @@
       return;
     }
     document.getElementById("tb-page").textContent = `${L("ملف المزرعة", "Farm profile")} ${f.code}`;
-    const [meters, wells, shapes, recBucket, farmLayers] = await Promise.all([
-      load("meters.json"), load("wells.json"), load("farm-shapes.json"), load(`records/${bucket(f.code)}.json`), load("farm-layers.json"),
+    const [meters, wells, shapes, farmLayers] = await Promise.all([
+      load("meters.json"), load("wells.json"), load("farm-shapes.json"), load("farm-layers.json"),
     ]);
     const M = meters.filter((m) => m.farm_code === f.code);
     const W = wells.filter((w) => w.farm_code === f.code);
     const shape = shapes.features.find((s) => s.properties.code === f.code);
-    const recs = recBucket[f.code] || [];
     const lyrs = farmLayers[f.code] || [];
     const g = [f.prod_g1 || 0, f.prod_g2 || 0, f.prod_g3 || 0];
     const G = GRADES();
-    const cats = CAT();
 
     app.innerHTML = `
       <a class="back" href="#/farms">${ico("arrow")}${L("سجل المزارع", "Farms register")}</a>
@@ -603,12 +979,12 @@
         ${kpi("box", L("الإنتاج 2026", "Production 2026"), `${fmt(f.prod_total, 2)} <small>${U.t()}</small>`, f.prod_total != null && f.date_trees ? L(`${fmt((f.prod_total * 1000) / f.date_trees, 1)} كجم / نخلة`, `${fmt((f.prod_total * 1000) / f.date_trees, 1)} kg / palm`) : "", { tint: "beige", cls: "t-brown" })}
         ${kpi("droplet", L("الآبار", "Wells"), fmt(f.wells_total), f.wells_total ? L(`${fmt(f.wells_active)} نشطة · ${fmt(f.wells_inactive)} متوقفة`, `${fmt(f.wells_active)} active · ${fmt(f.wells_inactive)} inactive`) : "", { subCls: f.wells_inactive ? "t-danger" : "" })}
         ${kpi("meter", L("عدادات الكهرباء", "Power meters"), fmt(f.meters_total), f.meters_total ? L(`${fmt(f.meters_working)} تعمل · ${fmt(f.meters_not_working)} لا تعمل`, `${fmt(f.meters_working)} working · ${fmt(f.meters_not_working)} not working`) : "", { subCls: f.meters_not_working ? "t-danger" : "t-primary" })}
-        ${kpi("database", L("مصادر البيانات", "Data sources"), fmt(f.source_count), L(`${fmt(recs.length)} سجل`, `${fmt(recs.length)} records`))}
+        ${kpi("layers", L("حالة التأجير", "Lease status"), f.lease_status ? t(f.lease_status) : "—", f.expropriation ? t(f.expropriation) : "", { cls: f.lease_status === "Full" ? "t-primary" : f.lease_status === "Not Leased" ? "t-danger" : "" })}
       </div>
       <div class="grid12">
         ${card("pin", L("الموقع والحدود", "Location & boundary"), `<div class="farmmap" id="fmap"></div>
           <div class="legend"><span><i style="background:transparent;border:2px solid #f2c230"></i>${L("حدود المزرعة", "Farm boundary")}${f.geometry_source ? ` (${esc(tt(lyrs.find((l) => l[0] === f.geometry_source)?.[1] || f.geometry_source))})` : ""}</span>
-          <span><i style="background:#f2c230;border-radius:50%"></i>${L("عداد يعمل", "Meter working")}</span><span><i style="background:#e0412f;border-radius:50%"></i>${L("عداد لا يعمل", "Meter not working")}</span><span><i style="background:#2a9fd6;border-radius:50%"></i>${L("بئر", "Well")}</span>
+          <span><i style="background:#e0a800;border-radius:50%"></i>${L("عداد يعمل", "Meter working")}</span><span><i style="background:#c62828;border-radius:50%"></i>${L("عداد لا يعمل", "Meter not working")}</span><span><i style="background:#1e88e5;border-radius:50%"></i>${L("بئر", "Well")}</span>
           ${f.lat != null ? `<span class="num">${f.lat.toFixed(5)}, ${f.lng.toFixed(5)}</span>` : ""}</div>`, { span: "c7" })}
         ${card("info", L("البيانات الأساسية", "Basic information"), dl([
           [L("رمز القطعة", "Plot code"), esc(f.plot_code)], [L("استخدام الأرض", "Land use"), esc(f.land_use)], [L("المشروع", "Project"), esc(f.project)], [L("المنطقة", "Region"), esc(f.region)],
@@ -633,25 +1009,15 @@
         ${card("meter", `${L("عدادات الكهرباء", "Power meters")} (${M.length})`, M.length ? `<div class="scroll"><table class="tbl"><thead><tr><th>${L("رقم العداد", "Meter no.")}</th><th>${L("الحالة", "Status")}</th><th>${L("مفصول؟", "Disconnected?")}</th><th>${L("طريقة الربط", "Assignment")}</th><th>${L("المسافة عن الحدود (م)", "Distance to boundary (m)")}</th><th>${L("مرجع البئر", "Well ref.")}</th><th>${L("التفاصيل الكهربائية", "Electrical details")}</th></tr></thead><tbody>
           ${M.map((m) => `<tr><td class="num"><b>${esc(m.meter_no)}</b></td><td>${badge(m.status)}</td><td>${t(m.disconnected)}</td><td>${esc(m.assignment)}</td><td class="num">${fmt(m.distance_m, 1)}</td><td>${esc(m.well_ref)}</td><td style="white-space:normal;min-width:240px;font-size:12px">${esc(m.details)}</td></tr>`).join("")}</tbody></table></div>` : `<p class="muted">${L("لا توجد عدادات مرتبطة بهذه المزرعة.", "No meters linked to this farm.")}</p>`)}
       </div>
-      <div class="grid12">
-        ${card("table", L("كل البيانات حسب المصدر", "All data by source"), `<p class="muted" style="font-size:13px;margin-top:0">${L("كل صف ورد عن هذه المزرعة في الملفات الأصلية (بدون بيانات التواصل الشخصية).", "Every row about this farm in the original files (personal contact data removed).")}</p>
-          ${[...groupBy(recs, (r) => r.c)].map(([c, rs]) => `<div class="cat-h">${cats[c] || esc(c)}</div>${rs.map((r) => {
-            const e = Object.entries(r.d).filter(([k]) => !k.startsWith("col_"));
-            const id = r.d["Power Meter No."] ?? r.d["Well Name"];
-            return `<details class="rec"><summary><b>${esc(tt(r.t))}${id != null ? `<span class="muted num" style="font-weight:400"> — ${esc(id)}</span>` : ""}</b><span class="muted" style="font-size:12px">${e.length} ${L("حقل", "fields")}</span></summary><div>
-              <div class="muted num" style="font-size:12px;margin-bottom:8px;direction:ltr;text-align:start">${esc(r.f)}</div>
-              <table class="tbl" dir="ltr"><tbody>${e.map(([k, v]) => `<tr><td class="muted" style="width:40%;white-space:normal">${esc(k)}</td><td style="white-space:normal">${esc(typeof v === "number" ? fmt(v, 3) : v)}</td></tr>`).join("")}</tbody></table></div></details>`;
-          }).join("")}`).join("")}
-          ${lyrs.length ? `<div class="cat-h">${L("طبقات الخرائط", "Map layers")}</div><div class="badges">${lyrs.map(([k, title, type]) => `<span class="badge ${k === f.geometry_source ? "primary" : ""}">${esc(tt(title))} · ${esc(type)}</span>`).join("")}</div>` : ""}`)}
-      </div>`;
+`;
 
     const el = document.getElementById("fmap");
     const map = L_.map(el, { preferCanvas: true });
     SAT().addTo(map);
     const group = L_.featureGroup().addTo(map);
     if (shape) L_.geoJSON(shape, { style: { color: "#f2c230", weight: 2.5, fillColor: "#f2c230", fillOpacity: 0.15 } }).addTo(group);
-    for (const m of M) if (m.lat != null) L_.circleMarker([m.lat, m.lng], { radius: 6, color: "#111", weight: 1, fillColor: m.status === "Working" ? "#f2c230" : "#e0412f", fillOpacity: 1 }).bindTooltip(`${L("عداد", "Meter")} ${m.meter_no} — ${t(m.status)}`).addTo(group);
-    for (const w of W) if (w.lat != null) L_.circleMarker([w.lat, w.lng], { radius: 6, color: "#111", weight: 1, fillColor: "#2a9fd6", fillOpacity: 1 }).bindTooltip(w.name).addTo(group);
+    for (const m of M) if (m.lat != null) L_.marker([m.lat, m.lng], { icon: mkIcon(m.status === "Working" ? "meter-ok" : "meter-bad") }).bindTooltip(`${L("عداد", "Meter")} ${m.meter_no} — ${t(m.status)}`).addTo(group);
+    for (const w of W) if (w.lat != null) L_.marker([w.lat, w.lng], { icon: mkIcon(wellKind(w.category)) }).bindTooltip(`${w.name} — ${w.category}`).addTo(group);
     if (!shape && f.lat != null) L_.circleMarker([f.lat, f.lng], { radius: 8, color: "#fff", weight: 2, fillColor: C.green, fillOpacity: 1 }).addTo(group);
     const fit = () => (group.getBounds().isValid() ? map.fitBounds(group.getBounds(), { padding: [30, 30], maxZoom: 17 }) : map.setView([26.7, 37.95], 11));
     fit();
@@ -717,19 +1083,6 @@
     };
   }
 
-  // ------------------------------------------------------------ sources
-  async function sourcesPage() {
-    const s = await load("sources.json");
-    const CATS = { masterplan: L("المخطط/الدراسات", "Master plan / studies"), production: L("الإنتاج", "Production"), survey: L("الحصر", "Survey"), wells: L("الآبار", "Wells"), meters: L("العدادات", "Meters") };
-    app.innerHTML = `
-      ${head(L("مصادر البيانات", "Data sources"), `${L("آخر بناء", "Last build")}: <span class="num">${esc(s.built_at.replace("T", " "))}</span>`)}
-      <div class="grid12">${card("lock", L("عن هذه النسخة", "About this copy"), `<p style="margin:0;line-height:1.9;font-size:14px;color:var(--ink2)">${L("نسخة محمية بكلمة مرور من منصة بيانات المزارع. البيانات مشفّرة (AES-256)، وأُزيلت منها أسماء ملاك المزارع وأرقام جوالاتهم.", "A password-protected copy of the Farms Data Platform. Data is encrypted (AES-256); farm owner names and mobile numbers are removed.")}</p>`)}</div>
-      <div class="grid12">${card("table", `${L("الجداول", "Tables")} (${s.sheets.length})`, `<div class="scroll"><table class="tbl"><thead><tr><th>${L("المصدر", "Source")}</th><th>${L("الفئة", "Category")}</th><th>${L("الملف / الورقة", "File / sheet")}</th><th>${L("الصفوف", "Rows")}</th></tr></thead><tbody>
-        ${s.sheets.map((x) => `<tr><td><b>${esc(tt(x.title))}</b></td><td><span class="badge">${CATS[x.category] || esc(x.category)}</span></td><td class="muted" dir="ltr" style="font-size:12px;white-space:normal">${esc(x.file)} › ${esc(x.sheet)}</td><td class="num">${fmt(x.rows)}</td></tr>`).join("")}</tbody></table></div>`)}</div>
-      <div class="grid12">${card("layers", `${L("طبقات الخرائط", "Map layers")} (${s.layers.length})`, `<div class="scroll"><table class="tbl"><thead><tr><th>${L("الطبقة", "Layer")}</th><th>${L("الملف", "File")}</th><th>${L("الأشكال", "Features")}</th><th>${L("مرتبطة بمزارع", "Linked to farms")}</th></tr></thead><tbody>
-        ${s.layers.map((x) => `<tr><td><b>${esc(tt(x.title))}</b></td><td class="muted" dir="ltr" style="font-size:12px;white-space:normal">${esc(x.file)}</td><td class="num">${fmt(x.features)}</td><td class="num">${fmt(x.linked)}</td></tr>`).join("")}</tbody></table></div>`)}</div>`;
-  }
-
   // ------------------------------------------------------------ chrome (top bar, rail) in the current language
   const rail = document.getElementById("rail");
   const mnav = document.getElementById("mnav");
@@ -738,8 +1091,8 @@
     const html = document.documentElement;
     html.lang = LANG;
     html.dir = DIR();
-    document.title = L("منصة بيانات المزارع", "Farms Data Platform");
-    document.getElementById("tb-sub").textContent = L("بيانات المزارع المنزوعة — العلا", "Expropriated farms data — AlUla");
+    document.title = NAME;
+    document.getElementById("tb-sub").textContent = L(`${NAME} · المزارع المنزوعة في العلا`, NAME);
     document.getElementById("tb-upd-l").textContent = L("آخر تحديث", "Last updated");
     document.getElementById("tb-date").innerHTML = `${ico("calendar")}${new Date().toLocaleDateString(LOCALE(), { day: "numeric", month: "long", year: "numeric" })}`;
     const search = document.querySelector("#gsearch input");
@@ -811,7 +1164,7 @@
     app.innerHTML = `
       <form id="login" class="card login">
         <div class="tb-ico">${ico("lock")}</div>
-        <h1>${L("منصة بيانات المزارع", "Farms Data Platform")}</h1>
+        <h1 class="num">${NAME}</h1>
         <p>${L("المحتوى محمي. أدخل كلمة المرور للدخول.", "This content is protected. Enter the password to continue.")}</p>
         <input class="field" type="password" name="pw" autocomplete="current-password" placeholder="${L("كلمة المرور", "Password")}" aria-label="${L("كلمة المرور", "Password")}" style="width:100%;text-align:center" autofocus />
         <button class="btn btn-primary" style="width:100%;margin-top:12px">${L("دخول", "Sign in")}</button>
