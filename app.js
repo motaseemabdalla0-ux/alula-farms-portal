@@ -631,7 +631,7 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
   const fmtDist = (m) => (m < 1000 ? `${fmt(m, 1)} ${L("م", "m")}` : `${fmt(m / 1000, 2)} ${L("كم", "km")}`);
   const popupRows = (rows) => `<table>${rows.map(([k, v]) => `<tr><td style="color:#6b7280;padding-inline-end:12px">${k}</td><td><b>${v}</b></td></tr>`).join("")}</table>`;
   const farmPopup = (f) => `<div dir="${DIR()}" style="min-width:220px"><a href="#/farm/${encodeURIComponent(f.code)}" title="${L("فتح ملف المزرعة", "Open farm profile")}" style="font-size:15px;font-weight:700;color:${C.green};text-decoration:underline">${esc(f.code)}</a><div style="color:#6b7280;margin-bottom:6px">${esc(f.project)}</div>${popupRows([
-    [L("الجهة", "Side"), esc(t(f.side))], [L("المساحة", "Area"), `${fmt(f.area_ha, 2)} ${U.ha()}`], [L("النخيل", "Palms"), fmt(f.date_trees)], [L("الإنتاج", "Production"), `${fmt(f.prod_total, 2)} ${U.t()}`],
+    [L("العنقود", "Cluster"), f.cluster ? `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${CLUSTER[f.cluster] || NODATA};vertical-align:middle;margin-inline-end:4px"></span>${esc(clName(f.cluster))}` : L("خارج العناقيد", "No cluster")], [L("الجهة", "Side"), esc(t(f.side))], [L("المساحة", "Area"), `${fmt(f.area_ha, 2)} ${U.ha()}`], [L("النخيل", "Palms"), fmt(f.date_trees)], [L("الإنتاج", "Production"), `${fmt(f.prod_total, 2)} ${U.t()}`],
     [L("الجودة", "Quality"), esc(t(f.prod_quality))], [L("التأجير", "Lease"), esc(t(f.lease_status))], [L("الآبار", "Wells"), fmt(f.wells_total)], [L("العدادات", "Meters"), fmt(f.meters_total)],
   ])}<a href="#/farm/${encodeURIComponent(f.code)}" style="display:inline-block;margin-top:8px;font-weight:700;color:${C.green}">${L("فتح ملف المزرعة", "Open farm profile")}</a></div>`;
   const propsPopup = (title, p) => {
@@ -692,9 +692,10 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
     const [shapes, layers, meters, wells, wpts] = await Promise.all([load("farm-shapes.json"), load("layers.json"), load("meters.json"), load("wells.json"), load("well-points.json")]);
     let mode = p.color || "lease";
     const hidden = new Set();
-    let clSel = p.cl || "";
-    let clShow = true;
-    const show = { meterOk: true, meterBad: true, wellReg: true, wellActive: true, wellInactive: true, wellOther: true };
+    // clusters picked in the side panel: only their farms are shown, coloured by cluster
+    const clOn = new Set(multi(p.cl));
+    // wells and meters stay off until ticked in the side panel
+    const show = { meterOk: false, meterBad: false, wellReg: false, wellActive: false, wellInactive: false, wellOther: false };
     app.innerHTML = `
       <div class="crumb"><b>${L("لوحة المؤشرات", "Dashboard")}</b> &gt;&gt; ${L("الخريطة الرئيسية", "Main map")}</div>
       <div class="mapwrap" id="mapwrap">
@@ -708,7 +709,6 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
               <span class="sep"></span>${ico("search")}<input id="sq" value="${esc(p.farm || "")}" placeholder="${L("أدخل رقم المزرعة", "Enter the farm code")}" aria-label="${L("بحث", "Search")}" /><button>${L("بحث", "Go")}</button>
             </form>
             <label class="pill"><select data-nav aria-label="${L("النطاق", "Scope")}"><option value="${href("/map", { color: p.color })}" ${scope !== "all" ? "selected" : ""}>${L("المزارع المنزوعة", "Expropriated farms")}</option><option value="${href("/map", { scope: "all", color: p.color })}" ${scope === "all" ? "selected" : ""}>${L("كل المزارع (سجل الآبار)", "All farms (wells register)")}</option></select></label>
-            <label class="pill"><select id="mcl" aria-label="${L("العنقود", "Cluster")}"><option value="">${L("كل العناقيد", "All clusters")}</option>${CL_KEYS.map((v) => `<option value="${v}" ${clSel === v ? "selected" : ""}>${clName(v)}</option>`).join("")}</select></label>
             <label class="pill"><select id="mode" aria-label="${L("تلوين المزارع", "Colour farms")}">${[["lease", L("حالة التأجير", "Lease status")], ["production", L("كمية الإنتاج", "Production")], ["quality", L("جودة التمور", "Date quality")], ["side", L("الجهة", "Side")], ["cluster", L("العنقود", "Cluster")]].map(([v, l]) => `<option value="${v}" ${mode === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
           </div>
           <div class="mtools">
@@ -745,39 +745,16 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
     const farmsLayer = L_.featureGroup().addTo(map);
     function refreshFarms() {
       all.eachLayer((l) => {
-        const [k, , c] = catOf(l.feature.properties, mode);
+        const fp = l.feature.properties;
+        const [k, , c0] = catOf(fp, mode);
+        const c = clOn.size ? catOf(fp, "cluster")[2] : c0;
         l.setStyle(l instanceof L_.CircleMarker ? { fillColor: c } : { color: c, fillColor: c });
-        if (hidden.has(k) || (clSel && l.feature.properties.cluster !== clSel)) farmsLayer.removeLayer(l);
+        if (clOn.size ? !clOn.has(fp.cluster) : hidden.has(k)) farmsLayer.removeLayer(l);
         else farmsLayer.addLayer(l);
       });
       map.fire("farmsrefresh");
     }
     refreshFarms();
-
-    // ---- cluster boundaries: convex hull around each cluster's farms, with a permanent name label
-    const hull = (pts) => {
-      pts = [...new Map(pts.map((q) => [q.join(), q])).values()].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
-      if (pts.length < 3) return pts;
-      const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
-      const half = (arr) => { const h = []; for (const q of arr) { while (h.length >= 2 && cross(h[h.length - 2], h[h.length - 1], q) <= 0) h.pop(); h.push(q); } h.pop(); return h; };
-      return [...half(pts), ...half([...pts].reverse())];
-    };
-    const vertices = (g) => g.type === "Point" ? [g.coordinates] : g.type === "Polygon" ? g.coordinates[0] : g.type === "MultiPolygon" ? g.coordinates.flatMap((q) => q[0]) : [];
-    const clLayer = L_.layerGroup().addTo(map);
-    const clPolys = {};
-    for (const [k, a] of groupBy(feats.filter((f) => f.properties.cluster), (f) => f.properties.cluster)) {
-      const h = hull(a.flatMap((f) => vertices(f.geometry)));
-      if (h.length < 3) continue;
-      const c = CLUSTER[k] || CLUSTER_X[0];
-      const poly = L_.polygon(h.map(([x, y]) => [y, x]), { color: c, weight: 3, dashArray: "8 6", fill: true, fillOpacity: 0.04, interactive: false })
-        .bindTooltip(`${clName(k)} <small dir="${DIR()}">(${fmt(a.length)} ${L("مزرعة", "farms")})</small>`, { permanent: true, direction: "center", className: "cl-label" });
-      clPolys[k] = poly;
-    }
-    function refreshClusters() {
-      clLayer.clearLayers();
-      if (clShow) Object.entries(clPolys).forEach(([k, l]) => (!clSel || k === clSel) && clLayer.addLayer(l));
-    }
-    refreshClusters();
 
     // ---- farm name labels (clickable -> farm profile), shown when zoomed in
     const LABEL_ZOOM = 15;
@@ -821,8 +798,7 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
     }
     const pointLayers = { meterOk: mOk, meterBad: mBad, wellReg: wReg, wellActive: wGroups.Active, wellInactive: wGroups.Inactive, wellOther: wGroups.other };
     // icons only from street-level zoom: at overview they pile up and hide the farm boundaries
-    const ICON_ZOOM = 14;
-    const refreshPoints = () => Object.entries(pointLayers).forEach(([k, lyr]) => (show[k] && map.getZoom() >= ICON_ZOOM ? lyr.addTo(map) : lyr.remove()));
+    const refreshPoints = () => Object.entries(pointLayers).forEach(([k, lyr]) => (show[k] ? lyr.addTo(map) : lyr.remove()));
     map.on("zoomend", refreshPoints);
     refreshPoints();
 
@@ -839,16 +815,16 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
           <div class="msub">${document.querySelector(`#mode option[value="${mode}"]`)?.textContent || ""} — ${L("انقر للإظهار/الإخفاء", "click to show/hide")}</div>
           ${cats.map(([k, label, c, n]) => `<div class="mrow ${hidden.has(k) ? "off" : ""}" data-cat="${esc(k)}"><span class="dot" style="background:${c}"></span><b class="num">${fmt(n)}</b><span>${esc(label)}</span></div>`).join("")}
         </div>
-        <div class="mcard"><div class="mcard-h"><span>${L("العناقيد", "Clusters")}</span><span class="cnt num">${fmt(Object.keys(clPolys).length)}</span></div>
-          <label class="mrow" style="cursor:pointer"><input type="checkbox" id="clshow" ${clShow ? "checked" : ""} style="accent-color:var(--main)" /><span>${L("إظهار حدود العناقيد", "Show cluster boundaries")}</span></label>
-          <div class="msub">${L("انقر على العنقود لعرض مزارعه فقط", "Click a cluster to show only its farms")}</div>
-          ${CL_KEYS.filter((k) => clPolys[k]).map((k) => `<div class="mrow ${clSel && clSel !== k ? "off" : ""}" data-cl="${k}"><span class="dot" style="background:${CLUSTER[k]};border-radius:3px"></span><b class="num">${fmt(feats.filter((f) => f.properties.cluster === k).length)}</b><span>${clName(k)}</span></div>`).join("")}
+        <div class="mcard"><div class="mcard-h"><span>${L("العناقيد", "Clusters")}</span><span class="cnt num">${fmt(feats.filter((f) => f.properties.cluster).length)}</span></div>
+          <div class="msub">${L("حدّد عنقوداً أو أكثر لعرض مزارعه ملوّنة بلون العنقود", "Tick one or more clusters to show their farms in the cluster colour")}</div>
+          ${CL_KEYS.map((k) => [k, feats.filter((f) => f.properties.cluster === k).length]).filter(([, n]) => n).map(([k, n]) => `<label class="mrow" style="cursor:pointer"><input type="checkbox" data-cl="${k}" ${clOn.has(k) ? "checked" : ""} style="accent-color:${CLUSTER[k]}" /><span class="dot" style="background:${CLUSTER[k]}"></span><b class="num">${fmt(n)}</b><span>${clName(k)}</span></label>`).join("")}
+          ${clOn.size ? `<button class="sel-line" id="clclear" style="border:0;background:none;color:var(--main);font-weight:600;cursor:pointer;padding:4px 0">${L("إلغاء تحديد العناقيد", "Clear clusters")}</button>` : ""}
         </div>
         <div class="mcard"><div class="mcard-h"><span>${L("عدادات الكهرباء", "Power meters")}</span><span class="cnt num">${fmt(mOk.getLayers().length + mBad.getLayers().length)}</span></div>
           ${ptRow("meterOk", "meter-ok", L("تعمل", "Working"), mOk.getLayers().length)}${ptRow("meterBad", "meter-bad", L("لا تعمل", "Not working"), mBad.getLayers().length)}
         </div>
         <div class="mcard"><div class="mcard-h"><span>${L("الآبار داخل المزارع", "Wells inside farms")}</span><span class="cnt num">${fmt(wReg.getLayers().length + wells.length)}</span></div>
-          <div class="msub">${L("الآبار الواقعة داخل حدود المزارع أو على بعد 10 م منها. تظهر الأيقونات عند التكبير.", "Wells inside farm boundaries or within 10 m. Icons appear when you zoom in.")}</div>
+          <div class="msub">${L("الآبار الواقعة داخل حدود المزارع أو على بعد 10 م منها. حدّد النوع لإظهاره على الخريطة.", "Wells inside farm boundaries or within 10 m. Tick a type to show it on the map.")}</div>
           ${ptRow("wellActive", "well", L("آبار ممسوحة — نشطة", "Surveyed — active"), wGroups.Active.getLayers().length)}
           ${ptRow("wellInactive", "well-off", L("آبار ممسوحة — متوقفة", "Surveyed — inactive"), wGroups.Inactive.getLayers().length)}
           ${ptRow("wellOther", "well-new", L("آبار ممسوحة — خارج النطاق", "Surveyed — out of scope"), wGroups.other.getLayers().length)}
@@ -865,11 +841,10 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
       const pt = e.target.closest("[data-pt]");
       if (c) { hidden.has(c.dataset.cat) ? hidden.delete(c.dataset.cat) : hidden.add(c.dataset.cat); refreshFarms(); renderSide(); }
       if (pt) { show[pt.dataset.pt] = !show[pt.dataset.pt]; refreshPoints(); renderSide(); }
-      const cl = e.target.closest("[data-cl]");
-      if (cl) setCluster(clSel === cl.dataset.cl ? "" : cl.dataset.cl);
+      if (e.target.id === "clclear") { clOn.clear(); applyClusters(); }
     });
     side.addEventListener("change", async (e) => {
-      if (e.target.id === "clshow") { clShow = e.target.checked; return refreshClusters(); }
+      if (e.target.dataset.cl) { e.target.checked ? clOn.add(e.target.dataset.cl) : clOn.delete(e.target.dataset.cl); return applyClusters(); }
       const key = e.target.dataset.ov;
       if (!key) return;
       if (!e.target.checked) { ovOn.delete(key); ovLayers[key]?.remove(); return; }
@@ -892,19 +867,15 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
       hidden.clear();
       refreshFarms();
       renderSide();
-      history.replaceState(null, "", href("/map", { scope: p.scope, color: mode === "lease" ? undefined : mode, cl: clSel || undefined }));
+      history.replaceState(null, "", href("/map", { scope: p.scope, color: mode === "lease" ? undefined : mode, cl: [...clOn].join(",") || undefined }));
     };
 
     // ---- tools
-    function setCluster(k) {
-      clSel = k;
-      document.getElementById("mcl").value = k;
-      refreshFarms(); refreshClusters(); renderSide();
-      if (k && clPolys[k]) map.fitBounds(clPolys[k].getBounds(), { padding: [40, 40] });
-      else fitAll();
-      history.replaceState(null, "", href("/map", { scope: p.scope, color: mode === "lease" ? undefined : mode, cl: k || undefined }));
+    function applyClusters() {
+      refreshFarms(); renderSide();
+      fitAll();
+      history.replaceState(null, "", href("/map", { scope: p.scope, color: mode === "lease" ? undefined : mode, cl: [...clOn].join(",") || undefined }));
     }
-    document.getElementById("mcl").onchange = (e) => setCluster(e.target.value);
     const fitAll = () => farmsLayer.getBounds().isValid() && map.fitBounds(farmsLayer.getBounds(), { padding: [30, 30] });
     document.getElementById("zin").onclick = () => map.zoomIn();
     document.getElementById("zout").onclick = () => map.zoomOut();
@@ -971,7 +942,7 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
         const Q = q.toUpperCase();
         const hit = index.get(Q) || [...index.entries()].find(([k]) => k.includes(Q))?.[1];
         if (!hit) return say(`${L("لم يتم العثور على المزرعة", "Farm not found")}: ${esc(q)} <button id="mclose">${L("إغلاق", "Close")}</button>`);
-        if (!farmsLayer.hasLayer(hit)) { hidden.clear(); clSel = ""; document.getElementById("mcl").value = ""; refreshFarms(); refreshClusters(); renderSide(); }
+        if (!farmsLayer.hasLayer(hit)) { hidden.clear(); clOn.clear(); refreshFarms(); renderSide(); }
         say("");
         zoomTo(hit);
       } else if (stype.value === "meter") {
