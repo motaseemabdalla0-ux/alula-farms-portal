@@ -376,3 +376,26 @@ details.rec > div { padding: 0 14px 12px; overflow-x: auto; }
 .coord-pts { margin-top: 14px; }
 .coord-pts summary { cursor: pointer; font-weight: 700; color: var(--main); padding: 6px 0; }
 .coord-pts .scroll { max-height: 320px; overflow: auto; }
+/* dashboard alerts */
+.alerts { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.alert-i { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 8px; background: var(--panel2, #f8f9fa); border-inline-start: 4px solid var(--c); color: inherit; text-decoration: none; transition: box-shadow .15s; }
+.alert-i:hover { box-shadow: 0 4px 12px rgb(0 0 0 / .12); }
+.alert-i b { font-size: 24px; color: var(--c); }
+.alert-i span { font-size: 13px; color: #4b5563; }
+/* print: one clean sheet per farm */
+.print-only { display: none; }
+@media print {
+  @page { size: A4; margin: 12mm; }
+  .print-only { display: flex !important; }
+  .print-head { justify-content: space-between; align-items: center; border-bottom: 2px solid var(--main); padding-bottom: 6px; margin-bottom: 10px; font-size: 13px; }
+  .back, .head .tools, .coord-btns, #tb-tools, .lang-btn { display: none !important; }
+  .shell, .main-col { display: block !important; }
+  body, .main-col { background: #fff !important; }
+  .card, .kpi, .grid12 > * { break-inside: avoid; }
+  .farmmap { height: 300px !important; }
+  .coord-pts .scroll, .scroll { max-height: none !important; overflow: visible !important; }
+  .kpis { grid-template-columns: repeat(3, 1fr) !important; }
+  .grid12 { display: grid; grid-template-columns: 1fr !important; }
+  a { color: inherit; text-decoration: none; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

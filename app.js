@@ -45,6 +45,9 @@
     filter: '<path d="M3 6h18"/><path d="M7 12h10"/><path d="M10 18h4"/>',
     chev: '<path d="m6 9 6 6 6-6"/>',
     side: '<path d="m9 18 6-6-6-6"/>',
+    polygon: '<path d="M12 3 21 9.5 17.5 20h-11L3 9.5Z"/><circle cx="12" cy="3" r="1.5"/><circle cx="21" cy="9.5" r="1.5"/><circle cx="17.5" cy="20" r="1.5"/><circle cx="6.5" cy="20" r="1.5"/><circle cx="3" cy="9.5" r="1.5"/>',
+    alert: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+    link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
     measure: '<path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"/><path d="m7.5 10.5 2 2"/><path d="m10.5 7.5 2 2"/><path d="m13.5 13.5 2 2"/><path d="m16.5 10.5 2 2"/>',
     home: '<path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/>',
     globe: '<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>',
@@ -164,7 +167,7 @@
   const app = document.getElementById("app");
   const PAGES = () => [
     ["/", "dashboard", "AlUla Expropriated Farms Dashboard"], ["/map", "map", L("الخريطة", "Map")], ["/farms", "sprout", L("المزارع", "Farms")],
-    ["/wells", "droplet", L("الآبار", "Wells")], ["/meters", "meter", L("العدادات", "Meters")],
+    ["/wells", "droplet", L("الآبار", "Wells")], ["/meters", "meter", L("العدادات", "Meters")], ["/review", "alert", L("مراجعة البيانات", "Data review")],
   ];
   let cleanup = null;
   function parse() {
@@ -193,6 +196,7 @@
       else if (path.startsWith("/farm/")) await farmPage(decodeURIComponent(path.slice(6)));
       else if (path === "/wells") await wellsPage(params);
       else if (path === "/meters") await metersPage(params);
+      else if (path === "/review") reviewPage(params);
       else app.innerHTML = `<p class="muted">${L("الصفحة غير موجودة.", "Page not found.")}</p>`;
     } catch (e) {
       app.innerHTML = `<div class="card"><b>${L("تعذّر التحميل", "Could not load")}</b><p class="muted">${esc(e.message)}</p></div>`;
@@ -293,6 +297,12 @@
         <div class="kpi clickable" ${go("/wells", { scope: params.scope })}><div class="kl">${ico("droplet")}<span>${L("الآبار", "Wells")}</span></div><div class="kv">${fmt(T.wells)}</div><div class="ks ${T.wi ? "t-danger" : ""}">${L(`${fmt(T.wa)} نشطة · ${fmt(T.wi)} متوقفة`, `${fmt(T.wa)} active · ${fmt(T.wi)} inactive`)}</div></div>
         <div class="kpi clickable" ${go("/meters", {})}><div class="kl">${ico("meter")}<span>${L("عدادات الكهرباء", "Power meters")}</span></div><div class="kv">${fmt(T.meters)}</div><div class="ks t-primary">${L(`${fmt(T.mw)} تعمل · ${fmt(T.mn)} لا تعمل`, `${fmt(T.mw)} working · ${fmt(T.mn)} not working`)}</div></div>
       </div>
+      ${(() => {
+        const A = ALERTS().map(([k, l, fn, c]) => [k, l, F.filter(fn).length, c]);
+        const gaps = GAPS().map(([k, l, fn]) => [k, l, F.filter(fn).length]).filter((g) => g[2]);
+        return `<div class="grid12">${card("alert", L("التنبيهات", "Alerts"), `<div class="alerts">${A.map(([k, l, n, c]) => `<a class="alert-i" href="${href("/review", { tab: "alerts", alert: k })}" style="--c:${c}"><b class="num">${fmt(n)}</b><span>${l}</span></a>`).join("")}</div>`, { span: "c7", action: `<a class="link" href="#/review?tab=alerts">${L("عرض الكل", "View all")}</a>` })}
+          ${card("info", L("نواقص البيانات", "Data gaps"), gaps.length ? gaps.map(([k, l, n]) => clickRow(prow(l, `${fmt(n)} / ${fmt(F.length)}`, [{ v: n, c: C.red }], F.length), href("/review", { tab: "gaps", gap: k }))).join("") : `<p class="muted">${L("لا توجد نواقص.", "No gaps.")}</p>`, { span: "c5" })}</div>`;
+      })()}
       <div class="grid12">
         ${card("trend", L("إنتاج التمور حسب الدرجة (طن)", "Date production by grade (t)"), prod.length ? `
           <div class="grid12" style="margin:0">
@@ -628,6 +638,17 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
   const MK = { "meter-ok": "meter", "meter-bad": "meter", well: "droplet", "well-off": "droplet", "well-new": "droplet" };
   const mkIcon = (kind) => L_.divIcon({ className: "mk-icon", html: `<div class="mk ${kind}">${ico(MK[kind])}</div>`, iconSize: [26, 26], iconAnchor: [13, 30], popupAnchor: [0, -28], tooltipAnchor: [12, -18] });
   const wellKind = (cat) => (cat === "Active" ? "well" : cat === "Inactive" ? "well-off" : "well-new");
+  // geodesic polygon area (m²) on the WGS84 sphere, same formula as Leaflet.draw
+  const geoArea = (pts) => {
+    const R = 6378137, d = Math.PI / 180;
+    let a = 0;
+    for (let i = 0; i < pts.length; i++) {
+      const p1 = pts[i], p2 = pts[(i + 1) % pts.length];
+      a += (p2.lng - p1.lng) * d * (2 + Math.sin(p1.lat * d) + Math.sin(p2.lat * d));
+    }
+    return Math.abs((a * R * R) / 2);
+  };
+  const fmtArea = (m2) => (m2 < 10000 ? `${fmt(m2, 0)} ${L("م²", "m²")}` : `${fmt(m2 / 10000, 2)} ${L("هكتار", "ha")} (${fmt(m2, 0)} ${L("م²", "m²")})`);
   const fmtDist = (m) => (m < 1000 ? `${fmt(m, 1)} ${L("م", "m")}` : `${fmt(m / 1000, 2)} ${L("كم", "km")}`);
   const popupRows = (rows) => `<table>${rows.map(([k, v]) => `<tr><td style="color:#6b7280;padding-inline-end:12px">${k}</td><td><b>${v}</b></td></tr>`).join("")}</table>`;
   const farmPopup = (f) => `<div dir="${DIR()}" style="min-width:220px"><a href="#/farm/${encodeURIComponent(f.code)}" title="${L("فتح ملف المزرعة", "Open farm profile")}" style="font-size:15px;font-weight:700;color:${C.green};text-decoration:underline">${esc(f.code)}</a><div style="color:#6b7280;margin-bottom:6px">${esc(f.project)}</div>${popupRows([
@@ -661,6 +682,66 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
     // AlUla: lat ≈ 26, lng ≈ 38 — if the first number looks like a longitude, swap
     if (Math.abs(a) > 90 || (a > 34 && b < 34)) [a, b] = [b, a];
     return Math.abs(a) <= 90 && Math.abs(b) <= 180 ? [a, b] : null;
+  }
+
+  // ------------------------------------------------------------ data review: area differences, data gaps, alerts
+  const LEASED = new Set(["Full", "Partial", "Mixed"]);
+  const areaDiff = (f) => (f.calc_area_m2 != null && f.area_reg > 0 ? Math.round(((f.calc_area_m2 / 10000 - f.area_reg) / f.area_reg) * 1000) / 10 || 0 : null);
+  const GAPS = () => [
+    ["boundary", L("بدون حدود على الخريطة", "No map boundary"), (f) => f.calc_area_m2 == null],
+    ["production", L("بدون بيانات إنتاج", "No production data"), (f) => f.prod_total == null],
+    ["meters", L("بدون عداد كهرباء", "No power meter"), (f) => !f.meters_total],
+    ["wells", L("بدون آبار مسجلة", "No wells recorded"), (f) => !f.wells_total],
+    ["lease", L("حالة التأجير غير محددة", "Lease status missing"), (f) => !f.lease_status],
+    ["trees", L("عدد النخيل غير مسجل", "Palm count missing"), (f) => f.date_trees == null],
+  ];
+  const ALERTS = () => [
+    ["meter", L("مزارع مؤجرة بها عداد لا يعمل", "Leased farms with a meter not working"), (f) => LEASED.has(f.lease_status) && f.meters_not_working > 0, C.red],
+    ["well", L("مزارع مؤجرة بها آبار متوقفة", "Leased farms with inactive wells"), (f) => LEASED.has(f.lease_status) && f.wells_inactive > 0, "#E08E3C"],
+    ["noprod", L("مزارع مؤجرة بدون بيانات إنتاج", "Leased farms without production data"), (f) => LEASED.has(f.lease_status) && f.prod_total == null, C.gold],
+    ["area", L("فرق المساحة أكبر من 20٪", "Area difference above 20%"), (f) => Math.abs(areaDiff(f) ?? 0) > 20, "#7b4fa3"],
+  ];
+
+  function reviewPage(p) {
+    const chip = (on, h, l) => `<a href="${h}" class="chip ${on ? "on" : ""}">${l}</a>`;
+    const tab = ["area", "gaps", "alerts"].includes(p.tab) ? p.tab : "area";
+    const F = scoped();
+    const th = [5, 10, 20, 50].includes(+p.th) ? +p.th : 10;
+    let list = [];
+    let body = "";
+    const farmLink = (f) => `<a class="link num" href="#/farm/${encodeURIComponent(f.code)}"><b>${esc(f.code)}</b></a>`;
+    const tabs = [["area", L("فروقات المساحة", "Area differences")], ["gaps", L("نواقص البيانات", "Data gaps")], ["alerts", L("التنبيهات", "Alerts")]];
+    if (tab === "area") {
+      list = F.filter((f) => Math.abs(areaDiff(f) ?? 0) > th).sort((a, b) => Math.abs(areaDiff(b)) - Math.abs(areaDiff(a)));
+      body = `<div class="chips" style="margin-bottom:12px"><span class="muted" style="align-self:center">${L("الحد الأدنى للفرق:", "Minimum difference:")}</span>${[5, 10, 20, 50].map((v) => chip(th === v, href("/review", { tab, th: v }), `${v}%`)).join("")}</div>
+        <p class="muted">${L(`${fmt(list.length)} مزرعة من ${fmt(F.length)} تختلف مساحتها المحسوبة من الحدود عن المسجلة بأكثر من ${th}٪.`, `${fmt(list.length)} of ${fmt(F.length)} farms differ from the registered area by more than ${th}%.`)}</p>
+        <div class="scroll"><table class="tbl"><thead><tr><th>${L("رمز المزرعة", "Farm code")}</th><th>${L("المسجلة (هـ)", "Registered (ha)")}</th><th>${L("المحسوبة (هـ)", "Calculated (ha)")}</th><th>${L("الفرق (هـ)", "Difference (ha)")}</th><th>${L("الفرق ٪", "Difference %")}</th><th></th></tr></thead><tbody>
+        ${list.map((f) => { const d = areaDiff(f); return `<tr><td>${farmLink(f)}</td><td class="num">${fmt(f.area_reg, 2)}</td><td class="num">${fmt(f.area_ha, 2)}</td><td class="num">${fmt(f.area_ha - f.area_reg, 2)}</td><td class="num"><b style="color:${d > 0 ? C.green : C.red}" dir="ltr">${d > 0 ? "+" : ""}${fmt(d, 1)}%</b></td><td><a class="link" href="${href("/map", { farm: f.code })}">${L("على الخريطة", "On map")}</a></td></tr>`; }).join("")}</tbody></table></div>`;
+    } else if (tab === "gaps") {
+      const G = GAPS();
+      const on = multi(p.gap).filter((k) => G.some((g) => g[0] === k));
+      const sel = on.length ? G.filter((g) => on.includes(g[0])) : G;
+      list = F.filter((f) => sel.some((g) => g[2](f)));
+      const toggle = (k) => href("/review", { tab, gap: (on.includes(k) ? on.filter((x) => x !== k) : [...on, k]).join(",") || undefined });
+      body = `<div class="kpis k6" style="margin-bottom:14px">${G.map(([k, l, fn]) => `<div class="kpi clickable ${on.includes(k) ? "green" : ""}" data-go="${esc(toggle(k))}"><div class="kl">${ico("info")}<span>${l}</span></div><div class="kv ${F.filter(fn).length ? "t-danger" : "t-primary"}">${fmt(F.filter(fn).length)}</div></div>`).join("")}</div>
+        <p class="muted">${on.length ? L("المزارع التي ينقصها أحد البنود المحددة.", "Farms missing any of the selected items.") : L("انقر على بند لعرض المزارع التي ينقصها فقط. القائمة الحالية: كل مزرعة ينقصها بند واحد على الأقل.", "Click an item to show only farms missing it. Now listing every farm missing at least one item.")} (${fmt(list.length)})</p>
+        <div class="scroll"><table class="tbl"><thead><tr><th>${L("رمز المزرعة", "Farm code")}</th>${sel.map((g) => `<th>${g[1]}</th>`).join("")}</tr></thead><tbody>
+        ${list.map((f) => `<tr><td>${farmLink(f)}</td>${sel.map((g) => `<td>${g[2](f) ? `<span class="badge danger">${L("ناقص", "Missing")}</span>` : `<span class="muted">✓</span>`}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+    } else {
+      const A = ALERTS();
+      const k = A.some((a) => a[0] === p.alert) ? p.alert : A[0][0];
+      const a = A.find((x) => x[0] === k);
+      list = F.filter(a[2]);
+      body = `<div class="kpis k4" style="margin-bottom:14px">${A.map(([key, l, fn, c]) => `<div class="kpi clickable ${key === k ? "green" : ""}" data-go="${esc(href("/review", { tab, alert: key }))}"><div class="kl"><span class="dot" style="background:${c};width:10px;height:10px;border-radius:50%;display:inline-block"></span><span>${l}</span></div><div class="kv">${fmt(F.filter(fn).length)}</div></div>`).join("")}</div>
+        <div class="scroll"><table class="tbl"><thead><tr><th>${L("رمز المزرعة", "Farm code")}</th><th>${L("التأجير", "Lease")}</th><th>${L("العدادات (لا تعمل)", "Meters (not working)")}</th><th>${L("الآبار (متوقفة)", "Wells (inactive)")}</th><th>${L("الإنتاج (طن)", "Production (t)")}</th><th>${L("فرق المساحة", "Area diff.")}</th></tr></thead><tbody>
+        ${list.map((f) => `<tr><td>${farmLink(f)}</td><td>${t(f.lease_status)}</td><td class="num">${fmt(f.meters_total)} (${fmt(f.meters_not_working)})</td><td class="num">${fmt(f.wells_total)} (${fmt(f.wells_inactive)})</td><td class="num">${fmt(f.prod_total, 2)}</td><td class="num" dir="ltr">${areaDiff(f) == null ? "—" : `${fmt(areaDiff(f), 1)}%`}</td></tr>`).join("")}</tbody></table></div>`;
+    }
+    app.innerHTML = `
+      ${head(L("مراجعة البيانات", "Data review"), L("فروقات المساحة ونواقص البيانات والتنبيهات للمزارع المنزوعة", "Area differences, data gaps and alerts for the expropriated farms"),
+        `<button class="btn" id="rv-exp" ${list.length ? "" : "disabled"}>${ico("download")}${L("تصدير Excel", "Export Excel")} (${fmt(list.length)})</button>`)}
+      <div class="chips" style="margin-bottom:14px">${tabs.map(([k, l]) => chip(tab === k, href("/review", { tab: k }), l)).join("")}</div>
+      <div class="card">${body || `<p class="muted">${L("لا توجد مزارع.", "No farms.")}</p>`}${list.length ? "" : `<p class="muted">${L("لا توجد مزارع في هذه القائمة.", "No farms in this list.")}</p>`}</div>`;
+    document.getElementById("rv-exp").onclick = () => exportFarms("xlsx", list);
   }
 
   // ------------------------------------------------------------ map page (Agriculture Center "Main Map" layout)
@@ -712,7 +793,7 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
           </div>
           <div class="mtools">
             <div class="tgroup"><button id="zin" title="${L("تكبير", "Zoom in")}">+</button><button id="zout" title="${L("تصغير", "Zoom out")}">−</button><button id="zfit" title="${L("عرض كل المزارع", "Fit all farms")}">${ico("home")}</button></div>
-            <div class="tgroup"><button id="tmeasure" title="${L("قياس المسافة بين نقطتين", "Measure distance between two points")}">${ico("measure")}</button><button id="tbase" title="${L("تبديل الخريطة الأساسية", "Switch basemap")}">${ico("globe")}</button></div>
+            <div class="tgroup"><button id="tmeasure" title="${L("قياس المسافة بين نقطتين", "Measure distance between two points")}">${ico("measure")}</button><button id="tarea" title="${L("قياس المساحة", "Measure area")}">${ico("polygon")}</button><button id="tbase" title="${L("تبديل الخريطة الأساسية", "Switch basemap")}">${ico("globe")}</button></div>
           </div>
           <div class="mhint" id="mhint" hidden></div>
         </div>
@@ -891,6 +972,7 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
     let mPts = [];
     const mDot = (ll) => L_.circleMarker(ll, { radius: 6, color: "#fff", weight: 2, fillColor: "#298459", fillOpacity: 1, interactive: false });
     function setMeasure(on) {
+      if (on && areaOn) setArea(false);
       measuring = on;
       wrap.classList.toggle("measuring", on);
       document.getElementById("tmeasure").classList.toggle("on", on);
@@ -919,6 +1001,42 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
       L_.tooltip({ permanent: true, direction: "top", className: "measure-tip" }).setLatLng(mid).setContent(fmtDist(d)).addTo(mLayer);
       say(`${L("المسافة", "Distance")}: <b class="num">${fmtDist(d)}</b> <button id="mnew">${L("قياس جديد", "New measurement")}</button><button id="mclose">${L("إغلاق", "Close")}</button>`);
     });
+    // ---- area tool: click corners, the polygon and its geodesic area update after each click
+    let areaOn = false;
+    let aPts = [];
+    const aLayer = L_.layerGroup().addTo(map);
+    const aMsg = () => `${ico("polygon")} ${aPts.length < 3 ? L(`انقر على أركان المساحة في الخريطة (${aPts.length} من 3 على الأقل)`, `Click the corners of the area on the map (${aPts.length} of at least 3)`) : `${L("المساحة", "Area")}: <b class="num">${fmtArea(geoArea(aPts))}</b> · ${L("المحيط", "Perimeter")}: <b class="num">${fmtDist(aPts.reduce((s, q, i) => s + map.distance(q, aPts[(i + 1) % aPts.length]), 0))}</b>`}
+      ${aPts.length ? `<button id="aundo">${L("تراجع", "Undo")}</button><button id="anew">${L("قياس جديد", "New")}</button>` : ""}<button id="aclose">${L("إغلاق", "Close")}</button>`;
+    function drawArea() {
+      aLayer.clearLayers();
+      aPts.forEach((q) => mDot(q).addTo(aLayer));
+      if (aPts.length >= 2) L_.polyline(aPts, { color: "#298459", weight: 3, dashArray: "6 6", interactive: false }).addTo(aLayer);
+      if (aPts.length >= 3) {
+        const poly = L_.polygon(aPts, { color: "#298459", weight: 3, fillColor: "#298459", fillOpacity: 0.2, interactive: false }).addTo(aLayer);
+        L_.tooltip({ permanent: true, direction: "center", className: "measure-tip" }).setLatLng(poly.getBounds().getCenter()).setContent(fmtArea(geoArea(aPts))).addTo(aLayer);
+      }
+      say(aMsg());
+    }
+    function setArea(on) {
+      if (on && measuring) setMeasure(false);
+      areaOn = on;
+      aPts = [];
+      aLayer.clearLayers();
+      wrap.classList.toggle("measuring", on);
+      document.getElementById("tarea").classList.toggle("on", on);
+      on ? map.doubleClickZoom.disable() : map.doubleClickZoom.enable();
+      on ? drawArea() : say("");
+    }
+    document.getElementById("tarea").onclick = () => setArea(!areaOn);
+    hint.addEventListener("click", (e) => {
+      if (e.target.id === "aclose") setArea(false);
+      if (e.target.id === "anew") { aPts = []; drawArea(); }
+      if (e.target.id === "aundo") { aPts.pop(); drawArea(); }
+    });
+    // a click on a farm can reach both the farm layer and the map: count it once
+    const addPt = (ll) => { const last = aPts[aPts.length - 1]; if (last && last.equals(ll)) return; aPts.push(ll); drawArea(); };
+    map.on("click", (e) => areaOn && addPt(e.latlng));
+    farmsLayer.on("click", (e) => { if (areaOn) { e.layer.closePopup(); addPt(e.latlng); } });
     // farm / meter popups must not swallow measuring clicks
     farmsLayer.on("click", (e) => { if (measuring) { e.layer.closePopup(); map.fire("click", { latlng: e.latlng }); } });
 
@@ -1025,6 +1143,7 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
 
     app.innerHTML = `
       <a class="back" href="#/farms">${ico("arrow")}${L("سجل المزارع", "Farms register")}</a>
+      <div class="print-only print-head"><b>${NAME}</b><span>${L("ملف مزرعة", "Farm sheet")} · ${new Date().toLocaleDateString(LANG === "ar" ? "ar-SA" : "en-GB")}</span></div>
       <div class="head"><div>
         <h1 class="num" style="direction:ltr;text-align:start">${esc(f.code)}</h1>
         <p>${esc([f.project, f.region].filter(Boolean).join(" · ") || "—")}</p>
@@ -1034,7 +1153,10 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
           ${f.expropriation ? `<span class="badge ${f.expropriation === "Expropriated" ? "gold" : ""}">${t(f.expropriation)}</span>` : ""}
           ${f.prod_quality ? badge(f.prod_quality, L(`جودة ${t(f.prod_quality)}`, `${t(f.prod_quality)} quality`)) : ""}${f.deserted === "Yes" ? `<span class="badge danger">${L("مرشحة للترك وفق الدراسة", "To be deserted (study)")}</span>` : ""}
         </div></div>
-        <div class="tools"><a class="btn btn-primary" href="${href("/map", { farm: f.code })}">${ico("map")}${L("عرض على الخريطة", "Show on map")}</a></div>
+        <div class="tools">
+          <button class="btn" data-copy="${esc(location.href.split("#")[0] + "#/farm/" + encodeURIComponent(f.code))}">${ico("link")}${L("نسخ رابط المزرعة", "Copy farm link")}</button>
+          <button class="btn" id="fprint">${ico("printer")}${L("طباعة / PDF", "Print / PDF")}</button>
+          <a class="btn btn-primary" href="${href("/map", { farm: f.code })}">${ico("map")}${L("عرض على الخريطة", "Show on map")}</a></div>
       </div>
       <div class="kpis k6">
         ${kpi("ruler", L("المساحة المحسوبة", "Calculated area"), `${fmt(f.area_ha, 2)} <small>${U.ha()}</small>`, f.calc_area_m2 != null ? `${fmt(f.calc_area_m2, 0)} ${L("م²", "m²")}${f.area_reg != null ? ` · ${L("المسجلة", "registered")} ${fmt(f.area_reg, 2)} ${U.ha()}` : ""}` : L("لا توجد حدود — المساحة المسجلة", "No boundary — registered area"), { tint: "green", cls: "t-primary" })}
@@ -1088,7 +1210,8 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
     const stop = watchSize(map, el, fit);
     const onClick = (e) => {
       const cp = e.target.closest("[data-copy]");
-      if (cp) navigator.clipboard?.writeText(cp.dataset.copy).then(() => { const o = cp.textContent; cp.textContent = L("تم النسخ ✓", "Copied ✓"); setTimeout(() => (cp.textContent = o), 1500); });
+      if (cp) navigator.clipboard?.writeText(cp.dataset.copy).then(() => { const o = cp.innerHTML; cp.textContent = L("تم النسخ ✓", "Copied ✓"); setTimeout(() => (cp.innerHTML = o), 1500); });
+      if (e.target.closest("#fprint")) { document.querySelectorAll(".coord-pts").forEach((d) => (d.open = true)); map.invalidateSize(); fit(); setTimeout(() => window.print(), 600); }
       const ex = e.target.closest("[data-fexp]");
       if (!ex) return;
       if (ex.dataset.fexp === "kml") return exportFarms("kml", [f]);
