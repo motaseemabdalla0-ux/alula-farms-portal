@@ -1,23 +1,23 @@
-/* Mirrors the Agriculture Center platform (agriculture.rcu.gov.sa) dashboard: #F8F9FA page, white 72px icon rail,
+/* Mirrors the Agriculture Center platform (agriculture.rcu.gov.sa) dashboard: #F8F4EF page, white 72px icon rail,
    64px white top bar, rounded-xl white cards with Tailwind `shadow`, KPI tiles centred with tinted variants
-   (#E8F5E9 green, #F9F5F1 beige), progress bars h-2 in #2E7D32 / #6D4C41. */
+   (#E3EAE8 green, #F8F4EF beige), progress bars h-2 in #14332D / #805E45. */
 :root {
-  --background: #f8f9fa;
+  --background: #F8F4EF;
   --panel: #ffffff;
   --panel2: #f3f4f6;
   --border: #e5e7eb;
-  --ink: #27272a;
+  --ink: #3D3936;
   --ink2: #3f3f46;
   --muted: #52525b;
   --muted2: #6b7280;
-  --primary: #2e7d32;
-  --primary-soft: #e8f5e9;
-  --brown: #6d4c41;
-  --beige: #f9f5f1;
-  --gold: #b8860b;
-  --gold-soft: #fbf3dc;
-  --danger: #c62828;
-  --danger-soft: #fdecea;
+  --primary: #14332D;
+  --primary-soft: #E3EAE8;
+  --brown: #805E45;
+  --beige: #F8F4EF;
+  --gold: #BA9863;
+  --gold-soft: #F4ECDF;
+  --danger: #402022;
+  --danger-soft: #F6E6DD;
   --track: #e5e7eb;
   --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
   color-scheme: light; /* always light, like the Agriculture Center platform */
@@ -165,7 +165,7 @@ main#app { padding: 24px; width: 100%; max-width: 1600px; margin: 0 auto; }
 .badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 500; background: var(--panel2); color: var(--muted); }
 .badge.primary { background: var(--primary-soft); color: var(--primary); }
 .badge.solid { background: var(--primary); color: #fff; }
-.badge.gold { background: linear-gradient(90deg, #b8860b, #daa520); color: #fff; }
+.badge.gold { background: linear-gradient(90deg, #BA9863, #D6AD68); color: #fff; }
 .badge.danger { background: var(--danger-soft); color: var(--danger); }
 .badge.warn { background: var(--gold-soft); color: var(--gold); }
 .badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
@@ -228,7 +228,7 @@ details.rec > div { padding: 0 14px 12px; overflow-x: auto; }
 }
 
 /* ===================== Agriculture Center IPM patterns: list toolbar, filter drawer, export ===================== */
-:root { --main: #298459; --main-soft: rgba(41, 132, 89, 0.16); --drawer: #fffefa; --th: #fcfcfd; --th-ink: #747e8a; --ink-brown: #301f06; }
+:root { --main: #986018; --main-soft: rgba(152, 96, 24, 0.14); --drawer: #fffefa; --th: #fcfcfd; --th-ink: #747e8a; --ink-brown: #3D3936; }
 .clickable { cursor: pointer; transition: box-shadow .15s, transform .15s, background .15s; }
 .kpi.clickable:hover, .card.clickable:hover { box-shadow: 0 4px 12px rgb(0 0 0 / .12); transform: translateY(-1px); }
 .prow.clickable, .donut li.clickable { border-radius: 6px; }
@@ -256,11 +256,11 @@ details.rec > div { padding: 0 14px 12px; overflow-x: auto; }
 .tbl.ipm td b, .tbl.ipm td .link { color: var(--ink); }
 .tbl.ipm td .link { color: var(--main); }
 .tbl.ipm input[type="checkbox"], .drawer input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--main); cursor: pointer; }
-.tbl.ipm tr.sel td { background: #f3faf6; }
+.tbl.ipm tr.sel td { background: #F8F4EF; }
 .st { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: 700; }
 .st.ok { background: var(--main-soft); color: var(--main); }
-.st.bad { background: rgba(198, 40, 40, .12); color: #c62828; }
-.st.mid { background: rgba(163, 157, 0, .16); color: #a39d00; }
+.st.bad { background: rgba(208, 139, 103, .2); color: #402022; }
+.st.mid { background: rgba(214, 173, 104, .25); color: #805E45; }
 .st.none { background: #f3f4f6; color: #6b7280; }
 
 .drawer-bg { position: fixed; inset: 0; background: rgb(0 0 0 / .25); z-index: 90; }
@@ -343,10 +343,10 @@ details.rec > div { padding: 0 14px 12px; overflow-x: auto; }
 .mk-icon { background: none; border: 0; }
 .mk { width: 26px; height: 26px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); display: grid; place-items: center; border: 2px solid #fff; box-shadow: 0 1px 4px rgb(0 0 0 / .45); }
 .mk svg { transform: rotate(45deg); width: 14px; height: 14px; color: #fff; }
-.mk.meter-ok { background: #e0a800; } .mk.meter-bad { background: #c62828; }
-.mk.well { background: #1e88e5; } .mk.well-off { background: #78909c; } .mk.well-new { background: #7e57c2; }
-.mk.hit { box-shadow: 0 0 0 4px rgb(41 132 89 / .6), 0 1px 4px rgb(0 0 0 / .45); }
-.coord-pin { width: 18px; height: 18px; border-radius: 50%; background: #e53935; border: 3px solid #fff; box-shadow: 0 0 0 3px rgb(229 57 53 / .35); }
+.mk.meter-ok { background: #BA9863; } .mk.meter-bad { background: #D08B67; }
+.mk.well { background: #14332D; } .mk.well-off { background: #805E45; } .mk.well-new { background: #402022; }
+.mk.hit { box-shadow: 0 0 0 4px rgb(152 96 24 / .6), 0 1px 4px rgb(0 0 0 / .45); }
+.coord-pin { width: 18px; height: 18px; border-radius: 50%; background: #986018; border: 3px solid #fff; box-shadow: 0 0 0 3px rgb(152 96 24 / .35); }
 @media (max-width: 767px) {
   .mside { position: absolute; inset-block: 0; inset-inline-start: 0; box-shadow: var(--shadow); }
   .pill input { width: 120px; }
@@ -363,7 +363,7 @@ details.rec > div { padding: 0 14px 12px; overflow-x: auto; }
 .mside-tab svg.i { width: 18px; height: 18px; }
 /* farm name labels on the map */
 .flabel-icon { background: none; border: 0; }
-.flabel { display: inline-block; transform: translate(-50%, -50%); white-space: nowrap; background: rgba(255,255,255,.92); color: #1b5e20; font: 700 11px/1.2 Cairo, sans-serif; padding: 2px 6px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,.3); text-decoration: none; }
+.flabel { display: inline-block; transform: translate(-50%, -50%); white-space: nowrap; background: rgba(255,255,255,.92); color: #14332D; font: 700 11px/1.2 Cairo, sans-serif; padding: 2px 6px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,.3); text-decoration: none; }
 .flabel:hover { background: var(--main); color: #fff; text-decoration: underline; }
 /* cluster name labels */
 .leaflet-tooltip.cl-label { background: rgba(255,255,255,.95); border: 0; border-radius: 8px; font: 800 13px/1.2 Cairo, sans-serif; color: #1f2937; padding: 3px 10px; box-shadow: 0 2px 6px rgba(0,0,0,.35); }
@@ -378,7 +378,7 @@ details.rec > div { padding: 0 14px 12px; overflow-x: auto; }
 .coord-pts .scroll { max-height: 320px; overflow: auto; }
 /* dashboard alerts */
 .alerts { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
-.alert-i { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 8px; background: var(--panel2, #f8f9fa); border-inline-start: 4px solid var(--c); color: inherit; text-decoration: none; transition: box-shadow .15s; }
+.alert-i { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 8px; background: var(--panel2, #F8F4EF); border-inline-start: 4px solid var(--c); color: inherit; text-decoration: none; transition: box-shadow .15s; }
 .alert-i:hover { box-shadow: 0 4px 12px rgb(0 0 0 / .12); }
 .alert-i b { font-size: 24px; color: var(--c); }
 .alert-i span { font-size: 13px; color: #4b5563; }

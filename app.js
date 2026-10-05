@@ -123,12 +123,13 @@
   const pct = (a, b) => (b ? (a / b) * 100 : 0);
   const esc = (v) => String(v ?? "—").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   // platform palette: green #2E7D32, brown #6D4C41, gold #B8860B/#DAA520
-  const C = { green: "#2E7D32", brown: "#6D4C41", gold: "#DAA520", red: "#C62828", gray: "#9CA3AF" };
-  const LEASE = { Full: C.green, Partial: C.gold, Mixed: "#E08E3C", "Not Leased": C.red };
-  const QUALITY = { High: C.green, Medium: C.gold, Mid: C.gold, Low: C.red };
-  const SIDE = { North: "#3A6EA5", South: C.brown };
+  // Royal Commission for AlUla palette — no red: "bad" states use Dadan Ochre
+  const C = { green: "#14332D", brown: "#805E45", gold: "#BA9863", red: "#D08B67", gray: "#E2C6AA", main: "#986018", ink: "#3D3936", plum: "#402022", yellow: "#D6AD68" };
+  const LEASE = { Full: C.green, Partial: C.yellow, Mixed: C.brown, "Not Leased": C.red };
+  const QUALITY = { High: C.green, Medium: C.yellow, Mid: C.yellow, Low: C.red };
+  const SIDE = { North: C.main, South: C.green };
   const NODATA = C.gray;
-  const GRADE = [C.green, C.gold, C.brown];
+  const GRADE = [C.green, C.gold, C.yellow];
   const tone = (v) => {
     const s = String(v || "").toLowerCase();
     if (["working", "full", "high", "yes"].includes(s)) return "primary";
@@ -259,8 +260,7 @@
   function dashboard(params) {
     const scope = "plan";
     const base = scoped(scope);
-    const DF = [["side", "side", L("الجهة", "Side")], ["region", "region", L("المنطقة", "Region")], ["cluster", "cluster", L("العنقود", "Cluster")]];
-    const F = base.filter((f) => DF.every(([k, fld]) => !multi(params[k]).length || multi(params[k]).includes(f[fld] ?? "")));
+    const F = base;
     const prod = F.filter((f) => f.prod_total != null);
     const T = {
       area: sum(F, "area_ha"), palms: sum(F, "date_trees"), prod: sum(prod, "prod_total"), g1: sum(prod, "prod_g1"), g2: sum(prod, "prod_g2"), g3: sum(prod, "prod_g3"),
@@ -268,7 +268,7 @@
       mapped: F.filter((f) => f.geometry_source).length,
     };
     // every drill-down keeps the dashboard's own filters
-    const keep = { side: params.side, region: params.region, cluster: params.cluster };
+    const keep = {};
     const sides = [...groupBy(prod, (f) => f.side || "")].map(([s, a]) => ({ s, g1: sum(a, "prod_g1"), g2: sum(a, "prod_g2"), g3: sum(a, "prod_g3"), n: a.length }));
     const sideMax = Math.max(...sides.map((x) => x.g1 + x.g2 + x.g3), 1e-9);
     const quality = [...groupBy(prod, (f) => f.prod_quality || "")].map(([q, a]) => ({
@@ -287,16 +287,6 @@
     app.innerHTML = `
       ${head("AlUla Expropriated Farms Dashboard", L("المزارع المنزوعة في العلا: الخرائط، الآبار، العدادات، إنتاج التمور — انقر على أي رقم أو شريط لعرض تفاصيله", "AlUla expropriated farms — click any figure or bar to drill down"),
         "")}
-      ${(() => {
-        const chips = DF.flatMap(([k, , label]) => multi(params[k]).map((v) => [k, v, `${label}: ${fLabel(k, v)}`]));
-        const n = chips.length;
-        return `<div class="list-card" style="margin-bottom:16px" id="dbar"><div class="list-bar">
-          <form class="list-search" id="dq">${ico("search")}<input name="q" placeholder="${L("ابحث برمز المزرعة ثم Enter", "Search a farm code, then Enter")}" aria-label="${L("بحث", "Search")}" /></form>
-          <button class="tbtn ghost" id="dfbtn">${ico("filter")}${L("فلتر", "Filter")}${n ? `<span class="cnt">${n}</span>` : ""}</button>
-          <div class="rel"><button class="tbtn" id="dxbtn" ${F.length ? "" : "disabled"}>${ico("download")}${L("تصدير", "Export")}</button><div class="menu" id="dxmenu" hidden></div></div>
-        </div>${n ? `<div class="chips-bar">${chips.map(([k, v, l]) => `<span class="fchip">${esc(l)}<button data-go="${esc(href("/", { ...keep, [k]: multi(params[k]).filter((x) => x !== v).join(",") || undefined }))}" aria-label="${L("إزالة", "Remove")}">×</button></span>`).join("")}<button class="sel-line" style="border:0;padding:3px 6px;background:none;color:var(--main);font-weight:600;cursor:pointer" data-go="#/">${L("مسح الكل", "Clear all")}</button></div>` : ""}
-        <div class="sel-line"><span class="muted">${L(`${fmt(F.length)} مزرعة مطابقة — التصدير يشمل كل المزارع المطابقة`, `${fmt(F.length)} matching farms — export includes all of them`)}</span></div></div><div id="ddrawer"></div>`;
-      })()}
       <div class="kpis k6">
         <div class="kpi green clickable" ${go("/farms", keep)}><div class="kl">${ico("sprout")}<span>${L("عدد المزارع", "Farms")}</span></div><div class="kv t-primary">${fmt(F.length)}</div><div class="ks t-primary">${L(`${fmt(T.mapped)} لها حدود على الخريطة`, `${fmt(T.mapped)} mapped`)}</div></div>
         <div class="kpi clickable" ${go("/farms", { ...keep, sort: "area_ha", dir: "desc" })}><div class="kl">${ico("ruler")}<span>${L("المساحة الإجمالية", "Total area")}</span></div><div class="kv">${fmt(T.area, 1)} <small>${U.ha()}</small></div><div class="ks">${L("هكتار", "hectares")}</div></div>
@@ -334,23 +324,7 @@
           </tbody></table></div>`, { span: "c8", action: `<a class="link" href="${href("/farms", { ...keep, sort: "prod_total", dir: "desc" })}">${L("كل المزارع", "All farms")}</a>` })}
         ${card("layers", L("حالة التأجير", "Lease status"), donutLinks(lease, (x) => (x.key ? href("/farms", { ...keep, lease: x.key }) : null)), { span: "c4" })}
       </div>`;
-    document.getElementById("dq").onsubmit = (ev) => {
-      ev.preventDefault();
-      const v = ev.target.q.value.trim().toUpperCase();
-      if (!v) return;
-      location.hash = BY_CODE.has(v) ? `#/farm/${encodeURIComponent(v)}` : href("/farms", { q: v });
-    };
-    document.getElementById("dfbtn").onclick = () => {
-      const dr = document.getElementById("ddrawer");
-      dr.innerHTML = drawerHtml(DF.map(([k, fld, label]) => [k, label, [...groupBy(base, (f) => f[fld] ?? "")].filter(([v]) => v !== "").map(([v, a]) => [v, fLabel(k, v), a.length]).sort((a, b) => String(a[1]).localeCompare(String(b[1]), undefined, { numeric: true })), multi(params[k])]));
-      wireDrawer(dr, (out) => (location.hash = href("/", Object.fromEntries(Object.entries(out).map(([k, v]) => [k, v.join(",") || undefined])))));
-    };
-    document.getElementById("dxbtn").onclick = () => {
-      const m = document.getElementById("dxmenu");
-      m.hidden = !m.hidden;
-      m.innerHTML = FARM_EXPORTS().map(([k, l, h, i]) => `<button data-dx="${k}">${ico(i)}<span>${l}<small>${h}</small></span></button>`).join("");
-    };
-    document.getElementById("dxmenu").onclick = (ev) => { const b = ev.target.closest("[data-dx]"); if (b) { ev.currentTarget.hidden = true; exportFarms(b.dataset.dx, F); } };
+
   }
   const clickRow = (html, target) => (target ? html.replace('<div class="prow">', `<div class="prow clickable" data-go="${esc(target)}">`) : html);
   const ringInner = (p, color, label) => `<div class="r" style="background:conic-gradient(${color} ${p * 3.6}deg, var(--track) 0)"><b class="num">${fmt(p, 1)}%</b></div><span>${label}</span>`;
@@ -860,9 +834,9 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
   ];
   const ALERTS = () => [
     ["meter", L("مزارع مؤجرة بها عداد لا يعمل", "Leased farms with a meter not working"), (f) => LEASED.has(f.lease_status) && f.meters_not_working > 0, C.red],
-    ["well", L("مزارع مؤجرة بها آبار متوقفة", "Leased farms with inactive wells"), (f) => LEASED.has(f.lease_status) && f.wells_inactive > 0, "#E08E3C"],
+    ["well", L("مزارع مؤجرة بها آبار متوقفة", "Leased farms with inactive wells"), (f) => LEASED.has(f.lease_status) && f.wells_inactive > 0, "#805E45"],
     ["noprod", L("مزارع مؤجرة بدون بيانات إنتاج", "Leased farms without production data"), (f) => LEASED.has(f.lease_status) && f.prod_total == null, C.gold],
-    ["area", L("فرق المساحة أكبر من 20٪", "Area difference above 20%"), (f) => Math.abs(areaDiff(f) ?? 0) > 20, "#7b4fa3"],
+    ["area", L("فرق المساحة أكبر من 20٪", "Area difference above 20%"), (f) => Math.abs(areaDiff(f) ?? 0) > 20, "#402022"],
   ];
 
   function reviewPage(p) {
@@ -930,16 +904,16 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
   }
 
   // ------------------------------------------------------------ map page (Agriculture Center "Main Map" layout)
-  const PROD_STEPS = [[0, "#EFEBE9"], [0.5, "#D7CCC8"], [2, "#A1887F"], [5, "#66BB6A"], [10, C.green]];
+  const PROD_STEPS = [[0, "#E2C6AA"], [0.5, "#D6AD68"], [2, "#BA9863"], [5, "#986018"], [10, C.green]];
   const prodBand = (v) => {
     if (v == null) return -1;
     let i = 0;
     PROD_STEPS.forEach(([m], k) => { if (v >= m) i = k; });
     return i;
   };
-  const CLUSTER = { 1: "#1E88E5", 2: "#E53935", 3: "#FDD835", 4: "#8E24AA", 5: "#FB8C00", 6: "#00ACC1", 7: "#D81B60", COD: "#43A047" };
+  const CLUSTER = { 1: "#BA9863", 2: "#14332D", 3: "#986018", 4: "#402022", 5: "#E2C6AA", 6: "#805E45", 7: "#D6AD68", COD: "#D08B67" };
   const CL_KEYS = ["1", "2", "3", "4", "5", "6", "7", "COD"];
-  const CLUSTER_X = ["#5E35B1", "#6D4C41", "#00897B", "#C0CA33"];
+  const CLUSTER_X = ["#3D3936", "#805E45", "#14332D", "#BA9863"];
   // category of a farm under each colour mode -> [key, label, colour]
   const catOf = (f, mode) => {
     if (mode === "lease") return f.lease_status ? [f.lease_status, t(f.lease_status), LEASE[f.lease_status] || NODATA] : ["", L("غير محدد", "Not specified"), NODATA];
@@ -951,7 +925,7 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
     const [m, c] = PROD_STEPS[b];
     return [String(b), b < PROD_STEPS.length - 1 ? `${m} – ${PROD_STEPS[b + 1][0]} ${U.t()}` : `${m}+ ${U.t()}`, c];
   };
-  const OVERLAY_COLORS = ["#7b4fa3", "#d0632a", "#2a8fa8", "#a83a6b", "#5d7d2a", "#8a6a2a", "#3a4fa8", "#a8762a", "#2aa86b", "#666"];
+  const OVERLAY_COLORS = ["#402022", "#D08B67", "#14332D", "#986018", "#D6AD68", "#805E45", "#3D3936", "#BA9863", "#E2C6AA", "#6E6A66"];
 
   async function mapPage(p) {
     const scope = "plan";
@@ -1000,7 +974,7 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
       ...(scope === "all" ? FARMS.filter((f) => !withShape.has(f.code) && f.lat != null).map((f) => ({ type: "Feature", properties: f, geometry: { type: "Point", coordinates: [f.lng, f.lat] } })) : []),
     ];
     const all = L_.geoJSON({ type: "FeatureCollection", features: feats }, {
-      style: (f) => { const c = catOf(f.properties, mode)[2]; return { color: c, weight: 1.6, fillColor: c, fillOpacity: 0.45 }; },
+      style: (f) => { const c = catOf(f.properties, mode)[2]; return { color: "#ffffff", weight: 1.4, fillColor: c, fillOpacity: 0.75 }; },
       pointToLayer: (f, ll) => L_.circleMarker(ll, { radius: 4, color: "#fff", weight: 1, fillColor: catOf(f.properties, mode)[2], fillOpacity: 0.9 }),
       onEachFeature: (f, l) => {
         l.bindPopup(() => farmPopup(f.properties), { maxWidth: 320 });
@@ -1014,7 +988,7 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
         const fp = l.feature.properties;
         const [k, , c0] = catOf(fp, mode);
         const c = clOn.size ? catOf(fp, "cluster")[2] : c0;
-        l.setStyle(l instanceof L_.CircleMarker ? { fillColor: c } : { color: c, fillColor: c });
+        l.setStyle({ fillColor: c });
         if (clOn.size ? !clOn.has(fp.cluster) : hidden.has(k)) farmsLayer.removeLayer(l);
         else farmsLayer.addLayer(l);
       });
@@ -1176,7 +1150,7 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
     let measuring = false;
     const mLayer = L_.layerGroup().addTo(map);
     let mPts = [];
-    const mDot = (ll) => L_.circleMarker(ll, { radius: 6, color: "#fff", weight: 2, fillColor: "#298459", fillOpacity: 1, interactive: false });
+    const mDot = (ll) => L_.circleMarker(ll, { radius: 6, color: "#fff", weight: 2, fillColor: "#986018", fillOpacity: 1, interactive: false });
     function setMeasure(on) {
       if (on && areaOn) setArea(false);
       measuring = on;
@@ -1202,7 +1176,7 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
       }
       const d = map.distance(mPts[0], mPts[1]);
       L_.polyline(mPts, { color: "#ffffff", weight: 5, opacity: 0.9, interactive: false }).addTo(mLayer);
-      L_.polyline(mPts, { color: "#298459", weight: 3, dashArray: "6 6", interactive: false }).addTo(mLayer);
+      L_.polyline(mPts, { color: "#986018", weight: 3, dashArray: "6 6", interactive: false }).addTo(mLayer);
       const mid = L_.latLng((mPts[0].lat + mPts[1].lat) / 2, (mPts[0].lng + mPts[1].lng) / 2);
       L_.tooltip({ permanent: true, direction: "top", className: "measure-tip" }).setLatLng(mid).setContent(fmtDist(d)).addTo(mLayer);
       say(`${L("المسافة", "Distance")}: <b class="num">${fmtDist(d)}</b> <button id="mnew">${L("قياس جديد", "New measurement")}</button><button id="mclose">${L("إغلاق", "Close")}</button>`);
@@ -1216,9 +1190,9 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
     function drawArea() {
       aLayer.clearLayers();
       aPts.forEach((q) => mDot(q).addTo(aLayer));
-      if (aPts.length >= 2) L_.polyline(aPts, { color: "#298459", weight: 3, dashArray: "6 6", interactive: false }).addTo(aLayer);
+      if (aPts.length >= 2) L_.polyline(aPts, { color: "#986018", weight: 3, dashArray: "6 6", interactive: false }).addTo(aLayer);
       if (aPts.length >= 3) {
-        const poly = L_.polygon(aPts, { color: "#298459", weight: 3, fillColor: "#298459", fillOpacity: 0.2, interactive: false }).addTo(aLayer);
+        const poly = L_.polygon(aPts, { color: "#986018", weight: 3, fillColor: "#986018", fillOpacity: 0.2, interactive: false }).addTo(aLayer);
         L_.tooltip({ permanent: true, direction: "center", className: "measure-tip" }).setLatLng(poly.getBounds().getCenter()).setContent(fmtArea(geoArea(aPts))).addTo(aLayer);
       }
       say(aMsg());
@@ -1367,8 +1341,8 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
       </div>
       <div class="grid12">
         ${card("pin", L("الموقع والحدود", "Location & boundary"), `<div class="farmmap" id="fmap"></div>
-          <div class="legend"><span><i style="background:transparent;border:2px solid #f2c230"></i>${L("حدود المزرعة", "Farm boundary")}${f.geometry_source ? ` (${esc(tt(lyrs.find((l) => l[0] === f.geometry_source)?.[1] || f.geometry_source))})` : ""}</span>
-          <span><i style="background:#e0a800;border-radius:50%"></i>${L("عداد يعمل", "Meter working")}</span><span><i style="background:#c62828;border-radius:50%"></i>${L("عداد لا يعمل", "Meter not working")}</span><span><i style="background:#1e88e5;border-radius:50%"></i>${L("بئر", "Well")}</span>
+          <div class="legend"><span><i style="background:transparent;border:2px solid #D6AD68"></i>${L("حدود المزرعة", "Farm boundary")}${f.geometry_source ? ` (${esc(tt(lyrs.find((l) => l[0] === f.geometry_source)?.[1] || f.geometry_source))})` : ""}</span>
+          <span><i style="background:#BA9863;border-radius:50%"></i>${L("عداد يعمل", "Meter working")}</span><span><i style="background:#D08B67;border-radius:50%"></i>${L("عداد لا يعمل", "Meter not working")}</span><span><i style="background:#14332D;border-radius:50%"></i>${L("بئر", "Well")}</span>
           ${f.lat != null ? `<span class="num">${f.lat.toFixed(5)}, ${f.lng.toFixed(5)}</span>` : ""}</div>`, { span: "c7" })}
         ${card("info", L("البيانات الأساسية", "Basic information"), dl([
           [L("رمز القطعة", "Plot code"), esc(f.plot_code)], [L("استخدام الأرض", "Land use"), esc(f.land_use)], [L("المشروع", "Project"), esc(f.project)], [L("المنطقة", "Region"), esc(f.region)],
@@ -1400,7 +1374,7 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
     const map = L_.map(el, { preferCanvas: true });
     SAT().addTo(map);
     const group = L_.featureGroup().addTo(map);
-    if (shape) L_.geoJSON(shape, { style: { color: "#f2c230", weight: 2.5, fillColor: "#f2c230", fillOpacity: 0.15 } }).addTo(group);
+    if (shape) L_.geoJSON(shape, { style: { color: "#D6AD68", weight: 2.5, fillColor: "#D6AD68", fillOpacity: 0.15 } }).addTo(group);
     for (const m of M) if (m.lat != null) L_.marker([m.lat, m.lng], { icon: mkIcon(m.status === "Working" ? "meter-ok" : "meter-bad") }).bindTooltip(`${L("عداد", "Meter")} ${m.meter_no} — ${t(m.status)}`).addTo(group);
     for (const w of W) if (w.lat != null) L_.marker([w.lat, w.lng], { icon: mkIcon(wellKind(w.category)) }).bindTooltip(`${w.name} — ${w.category}`).addTo(group);
     if (!shape && f.lat != null) L_.circleMarker([f.lat, f.lng], { radius: 8, color: "#fff", weight: 2, fillColor: C.green, fillOpacity: 1 }).addTo(group);
