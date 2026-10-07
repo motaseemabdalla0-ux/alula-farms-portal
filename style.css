@@ -540,3 +540,20 @@ html, body { overflow-x: clip; }
 .sarr svg { width: 15px; height: 15px; fill: none; stroke: #c9c2ba; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .sarr.asc .up, .sarr.desc .dn { stroke: var(--main); stroke-width: 2; }
 th a:hover .sarr svg { stroke: #8f877f; }
+/* pager (Agriculture Center platform style) */
+.pager2 { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 14px 16px; border-top: 1px solid var(--border); background: var(--panel); }
+.pg-size { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted2); }
+.pg-size select { height: 32px; min-width: 56px; padding: 0 8px; border: 1px solid var(--border); border-radius: 6px; background: #fff; font: inherit; font-weight: 600; color: var(--ink); cursor: pointer; }
+.pg-size select:focus { outline: 2px solid var(--main-soft); border-color: var(--main); }
+.pg-nums { display: flex; align-items: center; gap: 8px; }
+.pg { min-width: 32px; height: 32px; padding: 0 8px; border: 1px solid var(--border); border-radius: 6px; background: #fff; font: 700 12px Cairo, sans-serif; color: var(--ink); cursor: pointer; display: inline-grid; place-items: center; font-variant-numeric: tabular-nums; }
+.pg:hover:not(:disabled):not(.on) { border-color: var(--main); color: var(--main); }
+.pg.on { background: var(--main); border-color: var(--main); color: #fff; }
+.pg:disabled { opacity: .45; cursor: default; }
+.pg.arr svg { width: 16px; height: 16px; fill: none; stroke: var(--main); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.pg.arr:disabled svg { stroke: var(--muted2); }
+.pg.prev svg { transform: scaleX(-1); }            /* LTR: previous points left */
+[dir="rtl"] .pg.prev svg { transform: none; }      /* RTL: previous points right */
+[dir="rtl"] .pg.next svg { transform: scaleX(-1); }
+.pg-gap { color: var(--muted2); padding: 0 2px; }
+@media (max-width: 767px) { .pager2 { border-radius: 10px; justify-content: center; } }

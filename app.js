@@ -223,6 +223,19 @@
   // ------------------------------------------------------------ shared UI (platform components)
   const kpi = (icon, label, value, sub = "", opt = {}) =>
     `<div class="kpi ${opt.tint || ""}"><div class="kl">${chip(icon, "ic sm")}<span>${label}</span></div><div class="kv ${opt.cls || ""}">${value}</div>${sub ? `<div class="ks ${opt.subCls || ""}">${sub}</div>` : ""}</div>`;
+  const PAGE_SIZES = [5, 10, 25, 50];
+  let PAGE_SIZE = 10;
+  try { const v = +localStorage.getItem("page-size"); if (PAGE_SIZES.includes(v)) PAGE_SIZE = v; } catch { /* storage blocked */ }
+  const setPageSize = (v) => { PAGE_SIZE = +v; try { localStorage.setItem("page-size", String(PAGE_SIZE)); } catch { /* storage blocked */ } };
+  // attr: data attribute the page buttons carry ("pg" or "lpg"); pages shown: first, current ±1, last
+  function pagerHtml(page, total, attr) {
+    const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    const nums = [...new Set([1, page - 1, page, page + 1, pages])].filter((n) => n >= 1 && n <= pages).sort((a, b) => a - b);
+    const btns = nums.map((n, i) => `${i && n - nums[i - 1] > 1 ? `<span class="pg-gap">…</span>` : ""}<button class="pg ${n === page ? "on" : ""}" data-${attr}="${n}" ${n === page ? 'aria-current="page"' : ""}>${fmt(n)}</button>`).join("");
+    const arrow = `<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>`;
+    return `<div class="pg-size"><span>${L("حجم الصفحة", "Page Size")}</span><select data-psize aria-label="${L("حجم الصفحة", "Page size")}">${PAGE_SIZES.map((v) => `<option ${v === PAGE_SIZE ? "selected" : ""}>${v}</option>`).join("")}</select><span>${L(`من ${fmt(total)}`, `From ${fmt(total)}`)}</span></div>
+      <div class="pg-nums"><button class="pg arr prev" data-${attr}="${page - 1}" ${page <= 1 ? "disabled" : ""} aria-label="${L("السابق", "Previous")}">${arrow}</button>${btns}<button class="pg arr next" data-${attr}="${page + 1}" ${page >= pages ? "disabled" : ""} aria-label="${L("التالي", "Next")}">${arrow}</button></div>`;
+  }
   const sortIco = (state) => `<span class="sarr ${state || ""}" aria-hidden="true"><svg viewBox="0 0 16 16"><path class="up" d="M5 13V3M2.5 5.5 5 3l2.5 2.5"/><path class="dn" d="M11 3v10M8.5 10.5 11 13l2.5-2.5"/></svg></span>`;
   const ICON_TONE = {
     sprout: "#14332D", palm: "#14332D", gauge: "#14332D", droplet: "#14332D", ruler: "#805E45", info: "#805E45", layers: "#805E45",
@@ -399,7 +412,6 @@
   };
 
   function farmsPage(p) {
-    const SIZE = 50;
     let { rows, scope, sort, dir } = filterFarms(p);
     let page = Math.max(1, Number(p.page) || 1);
     let query = p.q || "";
@@ -420,7 +432,7 @@
         ${chips.length ? `<div class="chips-bar">${chips.map(([k, v, label]) => `<span class="fchip">${esc(label)}<button data-rm="${esc(k)}" data-v="${esc(v)}" aria-label="${L("إزالة", "Remove")}">×</button></span>`).join("")}<button class="sel-line" style="border:0;padding:3px 6px;background:none;color:var(--main);font-weight:600;cursor:pointer" data-go="${esc(href("/farms", { scope: p.scope }))}">${L("مسح الكل", "Clear all")}</button></div>` : ""}
         <div class="sel-line" id="selline"></div>
         <div class="scroll"><table class="tbl ipm"><thead><tr><th style="width:40px"><input type="checkbox" id="selpage" aria-label="${L("تحديد الصفحة", "Select page")}" /></th>${VCOLS().map(([k, l]) => `<th><a href="${href("/farms", { ...p, sort: k, dir: sort === k && dir === -1 ? "asc" : "desc", page: undefined })}">${l} ${sortIco(sort === k ? (dir === -1 ? "desc" : "asc") : "")}</a></th>`).join("")}</tr></thead><tbody id="ftb"></tbody></table></div>
-        <div class="pager" id="fpager" style="padding:0 0 14px"></div>
+        <div class="pager2" id="fpager"></div>
       </div>
       <div id="drawer-root"></div></div>`;
     // listeners live on this page's own root, which is replaced on the next render (no build-up on #app)
@@ -440,12 +452,13 @@
     };
     const tb = document.getElementById("ftb");
     function renderRows() {
+      const SIZE = PAGE_SIZE;
       const pages = Math.max(1, Math.ceil(rows.length / SIZE));
       page = Math.min(page, pages);
       const slice = rows.slice((page - 1) * SIZE, page * SIZE);
       tb.innerHTML = slice.map((f) => `<tr class="${SEL.has(f.code) ? "sel" : ""}"><td class="cb"><input type="checkbox" data-code="${esc(f.code)}" ${SEL.has(f.code) ? "checked" : ""} aria-label="${esc(f.code)}" /></td>${VCOLS().map(([k, l]) => `<td data-l="${esc(l)}" class="${["area_ha", "date_trees", "prod_total", "wells_total", "meters_total"].includes(k) ? "num" : ""}">${cell(f, k)}</td>`).join("")}</tr>`).join("")
         || `<tr><td colspan="${VCOLS().length + 1}" class="empty">${L("لا توجد نتائج", "No results")}</td></tr>`;
-      document.getElementById("fpager").innerHTML = pages > 1 ? `${page > 1 ? `<button class="tbtn" data-pg="${page - 1}">${L("السابق", "Previous")}</button>` : ""}<span class="muted">${L("صفحة", "Page")} <b class="num">${page}</b> ${L("من", "of")} <b class="num">${pages}</b></span>${page < pages ? `<button class="tbtn" data-pg="${page + 1}">${L("التالي", "Next")}</button>` : ""}` : "";
+      document.getElementById("fpager").innerHTML = pagerHtml(page, rows.length, "pg");
       const allOnPage = slice.length && slice.every((f) => SEL.has(f.code));
       document.getElementById("selpage").checked = !!allOnPage;
       renderSel();
@@ -479,12 +492,13 @@
         document.getElementById("cmenu").hidden = false;
         return;
       }
+      if (e.target.hasAttribute("data-psize")) { setPageSize(e.target.value); page = 1; renderRows(); return; }
       if (e.target.matches("input[data-code]")) {
         e.target.checked ? SEL.add(e.target.dataset.code) : SEL.delete(e.target.dataset.code);
         e.target.closest("tr").classList.toggle("sel", e.target.checked);
         renderSel();
       } else if (e.target.id === "selpage") {
-        rows.slice((page - 1) * SIZE, page * SIZE).forEach((f) => (e.target.checked ? SEL.add(f.code) : SEL.delete(f.code)));
+        rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).forEach((f) => (e.target.checked ? SEL.add(f.code) : SEL.delete(f.code)));
         renderRows();
       }
     });
@@ -604,7 +618,6 @@
   }
 
   function listTool(host, cfg) {
-    const SIZE = cfg.size || 50;
     let q = cfg.init?.q || "";
     const fsel = Object.fromEntries((cfg.filters || []).map(([k]) => [k, cfg.init?.f?.[k] || []]));
     const sel = new Set();
@@ -631,17 +644,18 @@
       <div data-lchips></div>
       <div class="sel-line" data-lsel></div>
       <div class="scroll"><table class="tbl ipm"><thead><tr>${cfg.exports?.length ? `<th style="width:40px"><input type="checkbox" data-lpage aria-label="${L("تحديد الصفحة", "Select page")}" /></th>` : ""}${cfg.cols.map(([k, l]) => `<th><a href="javascript:void 0" data-lsort="${esc(k)}">${l} <span data-larrow="${esc(k)}">${sortIco("")}</span></a></th>`).join("")}</tr></thead><tbody data-ltb></tbody></table></div>
-      <div class="pager" data-lpager style="padding:0 0 14px"></div>
+      <div class="pager2" data-lpager></div>
     </div><div data-ldrawer></div>`;
     const $ = (a) => host.querySelector(`[${a}]`);
     function render() {
+      const SIZE = PAGE_SIZE;
       const pages = Math.max(1, Math.ceil(rows.length / SIZE));
       page = Math.min(page, pages);
       const slice = rows.slice((page - 1) * SIZE, page * SIZE);
       const cb = !!cfg.exports?.length;
       $("data-ltb").innerHTML = slice.map((r) => { const k = cfg.key(r); return `<tr class="${sel.has(k) ? "sel" : ""}">${cb ? `<td class="cb"><input type="checkbox" data-lrow="${esc(k)}" ${sel.has(k) ? "checked" : ""} aria-label="${esc(k)}" /></td>` : ""}${cfg.cols.map(([, l, h, , num]) => `<td data-l="${esc(l)}" class="${num ? "num" : ""}">${h(r)}</td>`).join("")}</tr>`; }).join("")
         || `<tr><td colspan="${cfg.cols.length + (cb ? 1 : 0)}" class="empty">${L("لا توجد نتائج", "No results")}</td></tr>`;
-      $("data-lpager").innerHTML = pages > 1 ? `${page > 1 ? `<button class="tbtn" data-lpg="${page - 1}">${L("السابق", "Previous")}</button>` : ""}<span class="muted">${L("صفحة", "Page")} <b class="num">${page}</b> ${L("من", "of")} <b class="num">${pages}</b></span>${page < pages ? `<button class="tbtn" data-lpg="${page + 1}">${L("التالي", "Next")}</button>` : ""}` : "";
+      $("data-lpager").innerHTML = pagerHtml(page, rows.length, "lpg");
       if (cb) $("data-lpage").checked = !!slice.length && slice.every((r) => sel.has(cfg.key(r)));
       host.querySelectorAll("[data-larrow]").forEach((a) => (a.innerHTML = sortIco(sort === a.dataset.larrow ? (dir === -1 ? "desc" : "asc") : "")));
       const chips = Object.entries(fsel).flatMap(([k, vs]) => { const f = cfg.filters.find((x) => x[0] === k); return vs.map((v) => [k, v, `${f[1]}: ${f[3] ? f[3](v) : t(v)}`]); });
@@ -661,7 +675,8 @@
     $("data-lq").addEventListener("input", (e) => { clearTimeout(tmr); tmr = setTimeout(() => { q = e.target.value; refresh(); }, 200); });
     host.addEventListener("change", (e) => {
       if (e.target.dataset.lrow != null) { e.target.checked ? sel.add(e.target.dataset.lrow) : sel.delete(e.target.dataset.lrow); render(); }
-      else if (e.target.hasAttribute("data-lpage")) { rows.slice((page - 1) * SIZE, page * SIZE).forEach((r) => (e.target.checked ? sel.add(cfg.key(r)) : sel.delete(cfg.key(r)))); render(); }
+      else if (e.target.hasAttribute("data-psize")) { setPageSize(e.target.value); page = 1; render(); }
+      else if (e.target.hasAttribute("data-lpage")) { rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).forEach((r) => (e.target.checked ? sel.add(cfg.key(r)) : sel.delete(cfg.key(r)))); render(); }
     });
     host.addEventListener("click", (e) => {
       const s = e.target.closest("[data-lsort]");
