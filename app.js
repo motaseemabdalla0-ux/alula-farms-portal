@@ -136,10 +136,10 @@
   // Royal Commission for AlUla palette — no red: "bad" states use Dadan Ochre
   const C = { green: "#14332D", brown: "#805E45", gold: "#BA9863", red: "#D08B67", gray: "#E2C6AA", main: "#986018", ink: "#3D3936", plum: "#402022", yellow: "#D6AD68" };
   const LEASE = { Full: C.green, Partial: C.yellow, Mixed: C.brown, "Not Leased": C.red };
-  const QUALITY = { High: C.green, Medium: C.yellow, Mid: C.yellow, Low: C.red };
+  const QUALITY = { High: C.green, Medium: C.gold, Mid: C.gold, Low: C.red };
   const SIDE = { North: C.main, South: C.green };
   const NODATA = C.gray;
-  const GRADE = [C.green, C.gold, C.yellow];
+  const GRADE = [C.green, C.gold, C.red];
   const tone = (v) => {
     const s = String(v || "").toLowerCase();
     if (["working", "full", "high", "yes"].includes(s)) return "primary";
@@ -222,9 +222,14 @@
 
   // ------------------------------------------------------------ shared UI (platform components)
   const kpi = (icon, label, value, sub = "", opt = {}) =>
-    `<div class="kpi ${opt.tint || ""}"><div class="kl">${ico(icon)}<span>${label}</span></div><div class="kv ${opt.cls || ""}">${value}</div>${sub ? `<div class="ks ${opt.subCls || ""}">${sub}</div>` : ""}</div>`;
+    `<div class="kpi ${opt.tint || ""}"><div class="kl">${chip(icon, "ic sm")}<span>${label}</span></div><div class="kv ${opt.cls || ""}">${value}</div>${sub ? `<div class="ks ${opt.subCls || ""}">${sub}</div>` : ""}</div>`;
+  const ICON_TONE = {
+    sprout: "#14332D", palm: "#14332D", gauge: "#14332D", droplet: "#14332D", ruler: "#805E45", info: "#805E45", layers: "#805E45",
+    box: "#986018", trend: "#986018", wallet: "#986018", pie: "#BA9863", award: "#BA9863", meter: "#BA9863", pin: "#D08B67", alert: "#D08B67", table: "#3D3936",
+  };
+  const chip = (icon, cls = "ic") => `<span class="${cls}" style="--c:${ICON_TONE[icon] || "#986018"}">${ico(icon)}</span>`;
   const card = (icon, title, body, opt = {}) =>
-    `<section class="card ${opt.span || "c12"}"><div class="sec-h"><h2>${ico(icon)}${title}</h2>${opt.action || ""}</div>${body}</section>`;
+    `<section class="card ${opt.span || "c12"}"><div class="sec-h"><h2>${chip(icon)}${title}</h2>${opt.action || ""}</div>${body}</section>`;
   const head = (title, sub = "", tools = "") => `<div class="head"><div><h1>${title}</h1>${sub ? `<p>${sub}</p>` : ""}</div>${tools ? `<div class="tools">${tools}</div>` : ""}</div>`;
   const scopePick = () => "";
   function prow(label, value, segs, max) {
@@ -293,31 +298,31 @@
       .map(([r, a]) => ({ r, a: sum(a, "wells_active"), i: sum(a, "wells_inactive") }))
       .filter((x) => x.a + x.i > 0).sort((x, y) => (y.a + y.i) - (x.a + x.i)).slice(0, 10);
     const regMax = Math.max(...regions.map((x) => x.a + x.i), 1);
-    const top = [...prod].sort((a, b) => b.prod_total - a.prod_total).slice(0, 10);
+    const top = [...prod].sort((a, b) => b.prod_total - a.prod_total).slice(0, 5);
     const G = GRADES();
 
     app.innerHTML = `
       ${head(L("لوحة مؤشرات المزارع المنزوعة", "AlUla Expropriated Farms Dashboard"), L("انقر على أي رقم أو شريط لعرض المزارع التي خلفه", "Click any figure or bar to see the farms behind it"))}
       <div class="kpis k6">
-        <div class="kpi green clickable" ${go("/farms", keep)}><div class="kl">${ico("sprout")}<span>${L("عدد المزارع", "Farms")}</span></div><div class="kv t-primary">${fmt(F.length)}</div><div class="ks t-primary">${L(`${fmt(T.leased)} مؤجرة · ${fmt(F.length - T.leased)} غير مؤجرة`, `${fmt(T.leased)} leased · ${fmt(F.length - T.leased)} not`)}</div></div>
-        <div class="kpi clickable" ${go("/farms", { ...keep, sort: "area_ha", dir: "desc" })}><div class="kl">${ico("ruler")}<span>${L("المساحة الإجمالية", "Total area")}</span></div><div class="kv">${fmt(T.area, 0)} <small>${L("هكتار", "ha")}</small></div><div class="ks">${F.length ? L(`${fmt(T.area / F.length, 2)} هكتار / مزرعة`, `${fmt(T.area / F.length, 2)} ha / farm`) : ""}</div></div>
-        <div class="kpi clickable" ${go("/farms", { ...keep, sort: "date_trees", dir: "desc" })}><div class="kl">${ico("palm")}<span>${L("أشجار النخيل", "Date palms")}</span></div><div class="kv">${fmt(T.palms)}</div><div class="ks">${F.length ? L(`${fmt(T.palms / F.length)} نخلة / مزرعة`, `${fmt(T.palms / F.length)} palms / farm`) : ""}</div></div>
-        <div class="kpi beige clickable" ${go("/farms", { ...keep, has: "production", sort: "prod_total", dir: "desc" })}><div class="kl">${ico("box")}<span>${L("إنتاج التمور 2026", "Date production 2026")}</span></div><div class="kv t-brown">${fmt(T.prod, 1)} <small>${U.t()}</small></div><div class="ks">${L(`من ${fmt(prod.length)} مزرعة`, `from ${fmt(prod.length)} farms`)}</div></div>
-        <div class="kpi clickable" ${go("/wells", { scope: params.scope })}><div class="kl">${ico("droplet")}<span>${L("الآبار", "Wells")}</span></div><div class="kv">${fmt(T.wells)}</div><div class="ks ${T.wi ? "t-danger" : ""}">${L(`${fmt(T.wa)} نشطة · ${fmt(T.wi)} متوقفة`, `${fmt(T.wa)} active · ${fmt(T.wi)} inactive`)}</div></div>
-        <div class="kpi clickable" ${go("/meters", {})}><div class="kl">${ico("meter")}<span>${L("عدادات الكهرباء", "Power meters")}</span></div><div class="kv">${fmt(T.meters)}</div><div class="ks t-primary">${L(`${fmt(T.mw)} تعمل · ${fmt(T.mn)} لا تعمل`, `${fmt(T.mw)} working · ${fmt(T.mn)} not working`)}</div></div>
+        <div class="kpi green clickable" ${go("/farms", keep)}><div class="kl">${chip("sprout", "ic sm")}<span>${L("عدد المزارع", "Farms")}</span></div><div class="kv t-primary">${fmt(F.length)}</div><div class="ks t-primary">${L(`${fmt(T.leased)} مؤجرة · ${fmt(F.length - T.leased)} غير مؤجرة`, `${fmt(T.leased)} leased · ${fmt(F.length - T.leased)} not`)}</div></div>
+        <div class="kpi clickable" ${go("/farms", { ...keep, sort: "area_ha", dir: "desc" })}><div class="kl">${chip("ruler", "ic sm")}<span>${L("المساحة الإجمالية", "Total area")}</span></div><div class="kv">${fmt(T.area, 0)} <small>${L("هكتار", "ha")}</small></div><div class="ks">${F.length ? L(`${fmt(T.area / F.length, 2)} هكتار / مزرعة`, `${fmt(T.area / F.length, 2)} ha / farm`) : ""}</div></div>
+        <div class="kpi clickable" ${go("/farms", { ...keep, sort: "date_trees", dir: "desc" })}><div class="kl">${chip("palm", "ic sm")}<span>${L("أشجار النخيل", "Date palms")}</span></div><div class="kv">${fmt(T.palms)}</div><div class="ks">${F.length ? L(`${fmt(T.palms / F.length)} نخلة / مزرعة`, `${fmt(T.palms / F.length)} palms / farm`) : ""}</div></div>
+        <div class="kpi beige clickable" ${go("/farms", { ...keep, has: "production", sort: "prod_total", dir: "desc" })}><div class="kl">${chip("box", "ic sm")}<span>${L("إنتاج التمور 2026", "Date production 2026")}</span></div><div class="kv t-brown">${fmt(T.prod, 1)} <small>${U.t()}</small></div><div class="ks">${L(`من ${fmt(prod.length)} مزرعة`, `from ${fmt(prod.length)} farms`)}</div></div>
+        <div class="kpi clickable" ${go("/wells", { scope: params.scope })}><div class="kl">${chip("droplet", "ic sm")}<span>${L("الآبار", "Wells")}</span></div><div class="kv">${fmt(T.wells)}</div><div class="ks ${T.wi ? "t-danger" : ""}">${L(`${fmt(T.wa)} نشطة · ${fmt(T.wi)} متوقفة`, `${fmt(T.wa)} active · ${fmt(T.wi)} inactive`)}</div></div>
+        <div class="kpi clickable" ${go("/meters", {})}><div class="kl">${chip("meter", "ic sm")}<span>${L("عدادات الكهرباء", "Power meters")}</span></div><div class="kv">${fmt(T.meters)}</div><div class="ks t-primary">${L(`${fmt(T.mw)} تعمل · ${fmt(T.mn)} لا تعمل`, `${fmt(T.mw)} working · ${fmt(T.mn)} not working`)}</div></div>
       </div>
       <div class="grid12">
         ${card("trend", L("إنتاج التمور حسب الدرجة (طن)", "Date production by grade (t)"), prod.length ? `
           <div class="grid12" style="margin:0">
             <div class="c6"><div class="sub-h">${L("حسب الجهة", "By side")}</div>
-              ${sides.map((x) => clickRow(prow(`${x.s ? t(x.s) : L("غير محدد", "Not specified")} (${fmt(x.n)} ${U.farms()})`, `${fmt(x.g1 + x.g2 + x.g3, 1)} ${U.t()}`, [{ v: x.g1, c: GRADE[0], t: G[0] }, { v: x.g2, c: GRADE[1], t: G[1] }, { v: x.g3, c: GRADE[2], t: G[2] }], sideMax), x.s ? href("/", { ...keep, side: x.s }) : null)).join("")}
-              ${legend(G.map((g, i) => [g, GRADE[i]]))}
+              ${sides.map((x) => clickRow(prow(`${x.s ? t(x.s) : L("غير محدد", "Not specified")} (${fmt(x.n)} ${U.farms()})`, `${fmt(x.g1 + x.g2 + x.g3, 1)} ${U.t()}`, [{ v: x.g1, c: GRADE[0], t: G[0] }, { v: x.g2, c: GRADE[1], t: G[1] }, { v: x.g3, c: GRADE[2], t: G[2] }], T.prod), x.s ? href("/farms", { side: x.s, has: "production" }) : null)).join("")}
+              ${clickRow(prow(`${L("الإجمالي", "Total")} (${fmt(prod.length)} ${U.farms()})`, `<b>${fmt(T.prod, 1)} ${U.t()}</b>`, [{ v: T.g1, c: GRADE[0], t: G[0] }, { v: T.g2, c: GRADE[1], t: G[1] }, { v: T.g3, c: GRADE[2], t: G[2] }], T.prod), href("/farms", { has: "production" }))}
             </div>
             <div class="c6"><div class="sub-h">${L("حسب الدرجة", "By grade")}</div>
               ${[[L("درجة أولى — جودة عالية", "Grade 1 — high quality"), T.g1, "High"], [L("درجة ثانية — متوسطة", "Grade 2 — medium"), T.g2, "Medium"], [L("درجة ثالثة — شيص", "Grade 3 — Shees (low)"), T.g3, "Low"]]
                 .map(([lab, v, q], i) => clickRow(prow(lab, `${fmt(v, 1)} ${U.t()} (${fmt(pct(v, T.prod), 0)}%)`, [{ v, c: GRADE[i] }], T.prod), href("/farms", { ...keep, quality: q }))).join("")}
             </div>
-          </div>` : `<p class="muted">${L("لا توجد بيانات إنتاج لهذا النطاق.", "No production data for this scope.")}</p>`, { span: "c7" })}
+          </div>${legend(G.map((g, i) => [g, GRADE[i]]))}` : `<p class="muted">${L("لا توجد بيانات إنتاج لهذا النطاق.", "No production data for this scope.")}</p>`, { span: "c7" })}
         ${card("gauge", L("مؤشرات التشغيل", "Operational indicators"), `<div class="rings">
             <div class="ring clickable" ${go("/meters", { status: "Working" })}>${ringInner(pct(T.mw, T.meters), C.green, L("عدادات تعمل", "Meters working"))}</div>
             <div class="ring clickable" ${go("/wells", { scope: params.scope })}>${ringInner(pct(T.wa, T.wells), C.brown, L("آبار نشطة", "Wells active"))}</div>
@@ -331,7 +336,7 @@
       </div>
       <div class="grid12">
         ${card("droplet", L("الآبار حسب المنطقة", "Wells by region"), regions.length ? regions.map((r) => clickRow(prow(r.r ? t(r.r) : L("غير محدد", "Not specified"), activeOf(r.a, r.a + r.i), [{ v: r.a, c: C.green }, { v: r.i, c: C.red }], regMax), r.r ? href("/farms", { ...keep, region: r.r, has: "wells" }) : null)).join("") + legend([[L("آبار نشطة", "Active wells"), C.green], [L("آبار متوقفة", "Inactive wells"), C.red]]) : `<p class="muted">${L("لا توجد آبار مسجلة لهذا النطاق.", "No wells recorded for this scope.")}</p>`, { span: "c5" })}
-        ${card("award", L("أعلى 10 مزارع إنتاجاً", "Top 10 producing farms"), `<div class="scroll"><table class="tbl"><thead><tr><th>${L("رمز المزرعة", "Farm code")}</th><th>${L("المشروع", "Project")}</th><th>${L("الجهة", "Side")}</th><th>${L("النخيل", "Palms")}</th><th>${L("الإنتاج (طن)", "Production (t)")}</th><th>${L("الجودة", "Quality")}</th></tr></thead><tbody>
+        ${card("award", L("أعلى 5 مزارع إنتاجاً", "Top 5 producing farms"), `<div class="scroll"><table class="tbl"><thead><tr><th>${L("رمز المزرعة", "Farm code")}</th><th>${L("المشروع", "Project")}</th><th>${L("الجهة", "Side")}</th><th>${L("النخيل", "Palms")}</th><th>${L("الإنتاج (طن)", "Production (t)")}</th><th>${L("الجودة", "Quality")}</th></tr></thead><tbody>
           ${top.map((f) => `<tr class="clickable" ${go(`/farm/${encodeURIComponent(f.code)}`, {})}><td>${farmLink(f.code)}</td><td>${esc(t(f.project))}</td><td>${t(f.side)}</td><td class="num">${fmt(f.date_trees)}</td><td class="num"><b>${fmt(f.prod_total, 2)}</b></td><td>${badge(f.prod_quality)}</td></tr>`).join("")}
           </tbody></table></div>`, { span: "c7", action: `<a class="link" href="${href("/farms", { ...keep, sort: "prod_total", dir: "desc" })}">${L("كل المزارع", "All farms")}</a>` })}
       </div>`;
@@ -798,7 +803,7 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
   }
   // pin-shaped markers with an icon (meters / wells)
   const MK = { "meter-ok": "meter", "meter-bad": "meter", well: "droplet", "well-off": "droplet", "well-new": "droplet" };
-  const mkIcon = (kind) => L_.divIcon({ className: "mk-icon", html: `<div class="mk ${kind}">${ico(MK[kind])}</div>`, iconSize: [26, 26], iconAnchor: [13, 30], popupAnchor: [0, -28], tooltipAnchor: [12, -18] });
+  const mkIcon = (kind) => L_.divIcon({ className: "mk-icon", html: `<div class="mk ${kind} ${kind.startsWith("meter") ? "sq" : ""}">${ico(MK[kind])}</div>`, iconSize: [26, 26], iconAnchor: [13, 30], popupAnchor: [0, -28], tooltipAnchor: [12, -18] });
   const wellKind = (cat) => (cat === "Active" ? "well" : cat === "Inactive" ? "well-off" : "well-new");
   // geodesic polygon area (m²) on the WGS84 sphere, same formula as Leaflet.draw
   const geoArea = (pts) => {
@@ -1391,14 +1396,14 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
         ${kpi("ruler", L("المساحة المحسوبة", "Calculated area"), `${fmt(f.area_ha, 2)} <small>${U.ha()}</small>`, f.calc_area_m2 != null ? `${fmt(f.calc_area_m2, 0)} ${L("م²", "m²")}${f.area_reg != null ? ` · ${L("المسجلة", "registered")} ${fmt(f.area_reg, 2)} ${U.ha()}` : ""}` : L("لا توجد حدود — المساحة المسجلة", "No boundary — registered area"), { tint: "green", cls: "t-primary" })}
         ${kpi("palm", L("أشجار النخيل", "Date palms"), fmt(f.date_trees), f.citrus_trees || f.mango_trees ? L(`حمضيات ${fmt(f.citrus_trees)} · مانجو ${fmt(f.mango_trees)}`, `Citrus ${fmt(f.citrus_trees)} · Mango ${fmt(f.mango_trees)}`) : "")}
         ${kpi("box", L("الإنتاج 2026", "Production 2026"), `${fmt(f.prod_total, 2)} <small>${U.t()}</small>`, f.prod_total != null && f.date_trees ? L(`${fmt((f.prod_total * 1000) / f.date_trees, 1)} كجم / نخلة`, `${fmt((f.prod_total * 1000) / f.date_trees, 1)} kg / palm`) : "", { tint: "beige", cls: "t-brown" })}
-        ${kpi("droplet", L("الآبار", "Wells"), f.wells_total ? fmt(f.wells_total) : "0", f.wells_total ? L(`${fmt(f.wells_active)} نشطة · ${fmt(f.wells_inactive)} متوقفة`, `${fmt(f.wells_active)} active · ${fmt(f.wells_inactive)} inactive`) : L("لا آبار مسجلة", "No wells recorded"), { subCls: f.wells_inactive ? "t-danger" : "" })}
+        ${kpi("droplet", L("الآبار", "Wells"), fmt(f.wells_total || W.length || 0), f.wells_total ? L(`${fmt(f.wells_active)} نشطة · ${fmt(f.wells_inactive)} متوقفة`, `${fmt(f.wells_active)} active · ${fmt(f.wells_inactive)} inactive`) : W.length ? L(`آبار ممسوحة: ${fmt(W.filter((w) => w.category === "Active").length)} نشطة`, `surveyed: ${fmt(W.filter((w) => w.category === "Active").length)} active`) : L("لا آبار مسجلة", "No wells recorded"), { subCls: f.wells_inactive ? "t-danger" : "" })}
         ${kpi("meter", L("عدادات الكهرباء", "Power meters"), fmt(f.meters_total), f.meters_total ? L(`${fmt(f.meters_working)} تعمل · ${fmt(f.meters_not_working)} لا تعمل`, `${fmt(f.meters_working)} working · ${fmt(f.meters_not_working)} not working`) : "", { subCls: f.meters_not_working ? "t-danger" : "t-primary" })}
         ${kpi("layers", L("حالة التأجير", "Lease status"), f.lease_status ? `<span class="kv-badge" style="--c:${LEASE[f.lease_status] || NODATA}">${t(f.lease_status)}</span>` : "—", f.expropriation ? t(f.expropriation) : "")}
       </div>
       <div class="grid12">
         ${card("pin", L("الموقع والحدود", "Location & boundary"), `<div class="farmmap" id="fmap"></div>
           <div class="legend"><span><i style="background:transparent;border:2px solid #D6AD68"></i>${L("حدود المزرعة", "Farm boundary")}${f.geometry_source ? ` (${esc(tt(lyrs.find((l) => l[0] === f.geometry_source)?.[1] || f.geometry_source))})` : ""}</span>
-          <span><i style="background:#BA9863;border-radius:50%"></i>${L("عداد يعمل", "Meter working")}</span><span><i style="background:#D08B67;border-radius:50%"></i>${L("عداد لا يعمل", "Meter not working")}</span><span><i style="background:#14332D;border-radius:50%"></i>${L("بئر", "Well")}</span>
+          <span><i style="background:#14332D;border-radius:3px"></i>${L("عداد يعمل", "Meter working")}</span><span><i style="background:#D08B67;border-radius:3px"></i>${L("عداد لا يعمل", "Meter not working")}</span><span><i style="background:#14332D;border-radius:50%"></i>${L("بئر نشط", "Active well")}</span><span><i style="background:#D08B67;border-radius:50%"></i>${L("بئر متوقف", "Inactive well")}</span>
 </div>${coordBlock(f)}`, { span: "c7" })}
         ${card("info", L("البيانات الأساسية", "Basic information"), dlFilled([
           [L("رمز القطعة", "Plot code"), esc(f.plot_code)], [L("استخدام الأرض", "Land use"), esc(f.land_use)], [L("المشروع", "Project"), esc(t(f.project))], [L("المنطقة", "Region"), esc(t(f.region))],

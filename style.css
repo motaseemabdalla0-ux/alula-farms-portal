@@ -343,8 +343,13 @@ details.rec > div { padding: 0 14px 12px; overflow-x: auto; }
 .mk-icon { background: none; border: 0; }
 .mk { width: 26px; height: 26px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); display: grid; place-items: center; border: 2px solid #fff; box-shadow: 0 1px 4px rgb(0 0 0 / .45); }
 .mk svg { transform: rotate(45deg); width: 14px; height: 14px; color: #fff; }
-.mk.meter-ok { background: #BA9863; } .mk.meter-bad { background: #D08B67; }
-.mk.well { background: #14332D; } .mk.well-off { background: #805E45; } .mk.well-new { background: #402022; }
+/* colour = status (Oasis green ok · Dadan ochre not ok · Mountain brown out of scope); shape = type (square meter, pin well) */
+.mk.meter-ok { background: #14332D; } .mk.meter-bad { background: #D08B67; }
+.mk.well { background: #14332D; } .mk.well-off { background: #D08B67; } .mk.well-new { background: #805E45; }
+.mk.sq { border-radius: 7px; transform: none; }
+.mk.sq svg { transform: none; }
+.mk.sq::after { content: ""; position: absolute; bottom: -6px; left: 50%; margin-left: -4px; border: 4px solid transparent; border-top-color: #fff; }
+.mk { position: relative; }
 .mk.hit { box-shadow: 0 0 0 4px rgb(152 96 24 / .6), 0 1px 4px rgb(0 0 0 / .45); }
 .coord-pin { width: 18px; height: 18px; border-radius: 50%; background: #986018; border: 3px solid #fff; box-shadow: 0 0 0 3px rgb(152 96 24 / .35); }
 @media (max-width: 767px) {
@@ -511,3 +516,13 @@ html, body { overflow-x: clip; }
   .list-bar { flex-wrap: wrap; }
   .list-search { min-width: 100%; }
 }
+
+/* coloured icon chips (RCU tones) */
+.ic { width: 34px; height: 34px; border-radius: 9px; display: inline-grid; place-items: center; flex-shrink: 0; color: var(--c); background: color-mix(in srgb, var(--c) 13%, #fff); }
+.ic svg.i { width: 18px; height: 18px; color: var(--c) !important; }
+.ic.sm { width: 28px; height: 28px; border-radius: 8px; }
+.ic.sm svg.i { width: 16px; height: 16px; }
+.sec-h h2 { gap: 10px; }
+.kpi .kl { gap: 8px; }
+.kpi.green .ic { background: #fff; }
+.mk.mini::after, .mcard .mk::after { display: none; }
