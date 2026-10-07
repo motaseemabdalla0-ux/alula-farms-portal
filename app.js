@@ -223,6 +223,7 @@
   // ------------------------------------------------------------ shared UI (platform components)
   const kpi = (icon, label, value, sub = "", opt = {}) =>
     `<div class="kpi ${opt.tint || ""}"><div class="kl">${chip(icon, "ic sm")}<span>${label}</span></div><div class="kv ${opt.cls || ""}">${value}</div>${sub ? `<div class="ks ${opt.subCls || ""}">${sub}</div>` : ""}</div>`;
+  const sortIco = (state) => `<span class="sarr ${state || ""}" aria-hidden="true"><svg viewBox="0 0 16 16"><path class="up" d="M5 13V3M2.5 5.5 5 3l2.5 2.5"/><path class="dn" d="M11 3v10M8.5 10.5 11 13l2.5-2.5"/></svg></span>`;
   const ICON_TONE = {
     sprout: "#14332D", palm: "#14332D", gauge: "#14332D", droplet: "#14332D", ruler: "#805E45", info: "#805E45", layers: "#805E45",
     box: "#986018", trend: "#986018", wallet: "#986018", pie: "#BA9863", award: "#BA9863", meter: "#BA9863", pin: "#D08B67", alert: "#D08B67", table: "#3D3936",
@@ -418,7 +419,7 @@
         </div>
         ${chips.length ? `<div class="chips-bar">${chips.map(([k, v, label]) => `<span class="fchip">${esc(label)}<button data-rm="${esc(k)}" data-v="${esc(v)}" aria-label="${L("إزالة", "Remove")}">×</button></span>`).join("")}<button class="sel-line" style="border:0;padding:3px 6px;background:none;color:var(--main);font-weight:600;cursor:pointer" data-go="${esc(href("/farms", { scope: p.scope }))}">${L("مسح الكل", "Clear all")}</button></div>` : ""}
         <div class="sel-line" id="selline"></div>
-        <div class="scroll"><table class="tbl ipm"><thead><tr><th style="width:40px"><input type="checkbox" id="selpage" aria-label="${L("تحديد الصفحة", "Select page")}" /></th>${VCOLS().map(([k, l]) => `<th><a href="${href("/farms", { ...p, sort: k, dir: sort === k && dir === -1 ? "asc" : "desc", page: undefined })}">${l} ${sort === k ? (dir === -1 ? "▼" : "▲") : "↕"}</a></th>`).join("")}</tr></thead><tbody id="ftb"></tbody></table></div>
+        <div class="scroll"><table class="tbl ipm"><thead><tr><th style="width:40px"><input type="checkbox" id="selpage" aria-label="${L("تحديد الصفحة", "Select page")}" /></th>${VCOLS().map(([k, l]) => `<th><a href="${href("/farms", { ...p, sort: k, dir: sort === k && dir === -1 ? "asc" : "desc", page: undefined })}">${l} ${sortIco(sort === k ? (dir === -1 ? "desc" : "asc") : "")}</a></th>`).join("")}</tr></thead><tbody id="ftb"></tbody></table></div>
         <div class="pager" id="fpager" style="padding:0 0 14px"></div>
       </div>
       <div id="drawer-root"></div></div>`;
@@ -629,7 +630,7 @@
       </div>
       <div data-lchips></div>
       <div class="sel-line" data-lsel></div>
-      <div class="scroll"><table class="tbl ipm"><thead><tr>${cfg.exports?.length ? `<th style="width:40px"><input type="checkbox" data-lpage aria-label="${L("تحديد الصفحة", "Select page")}" /></th>` : ""}${cfg.cols.map(([k, l]) => `<th><a href="javascript:void 0" data-lsort="${esc(k)}">${l} <span data-larrow="${esc(k)}">↕</span></a></th>`).join("")}</tr></thead><tbody data-ltb></tbody></table></div>
+      <div class="scroll"><table class="tbl ipm"><thead><tr>${cfg.exports?.length ? `<th style="width:40px"><input type="checkbox" data-lpage aria-label="${L("تحديد الصفحة", "Select page")}" /></th>` : ""}${cfg.cols.map(([k, l]) => `<th><a href="javascript:void 0" data-lsort="${esc(k)}">${l} <span data-larrow="${esc(k)}">${sortIco("")}</span></a></th>`).join("")}</tr></thead><tbody data-ltb></tbody></table></div>
       <div class="pager" data-lpager style="padding:0 0 14px"></div>
     </div><div data-ldrawer></div>`;
     const $ = (a) => host.querySelector(`[${a}]`);
@@ -642,7 +643,7 @@
         || `<tr><td colspan="${cfg.cols.length + (cb ? 1 : 0)}" class="empty">${L("لا توجد نتائج", "No results")}</td></tr>`;
       $("data-lpager").innerHTML = pages > 1 ? `${page > 1 ? `<button class="tbtn" data-lpg="${page - 1}">${L("السابق", "Previous")}</button>` : ""}<span class="muted">${L("صفحة", "Page")} <b class="num">${page}</b> ${L("من", "of")} <b class="num">${pages}</b></span>${page < pages ? `<button class="tbtn" data-lpg="${page + 1}">${L("التالي", "Next")}</button>` : ""}` : "";
       if (cb) $("data-lpage").checked = !!slice.length && slice.every((r) => sel.has(cfg.key(r)));
-      host.querySelectorAll("[data-larrow]").forEach((a) => (a.textContent = sort === a.dataset.larrow ? (dir === -1 ? "▼" : "▲") : "↕"));
+      host.querySelectorAll("[data-larrow]").forEach((a) => (a.innerHTML = sortIco(sort === a.dataset.larrow ? (dir === -1 ? "desc" : "asc") : "")));
       const chips = Object.entries(fsel).flatMap(([k, vs]) => { const f = cfg.filters.find((x) => x[0] === k); return vs.map((v) => [k, v, `${f[1]}: ${f[3] ? f[3](v) : t(v)}`]); });
       $("data-lchips").innerHTML = chips.length ? `<div class="chips-bar">${chips.map(([k, v, l]) => `<span class="fchip">${esc(l)}<button data-lrm="${esc(k)}" data-v="${esc(v)}" aria-label="${L("إزالة", "Remove")}">×</button></span>`).join("")}<button class="sel-line" data-lclear style="border:0;padding:3px 6px;background:none;color:var(--main);font-weight:600;cursor:pointer">${L("مسح الكل", "Clear all")}</button></div>` : "";
       const fc = $("data-lfc");
@@ -1010,7 +1011,9 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
       pointToLayer: (f, ll) => L_.circleMarker(ll, { radius: 4, color: "#fff", weight: 1, fillColor: catOf(f.properties, mode)[2], fillOpacity: 0.9 }),
       onEachFeature: (f, l) => {
         l.bindPopup(() => farmPopup(f.properties), { maxWidth: 320 });
-        l.bindTooltip(f.properties.code, { sticky: true, direction: "top" });
+        l.bindTooltip(f.properties.code, { sticky: true, direction: "top", className: "farm-tip", offset: [0, -8] });
+        l.on("mouseover", () => l.setStyle({ weight: 3, color: "#ffffff" }));
+        l.on("mouseout", () => refreshFarms());
         index.set(f.properties.code, l);
       },
     });
@@ -1047,7 +1050,7 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
       });
       labels.addTo(map);
     }
-    map.on("zoomend moveend farmsrefresh", refreshLabels);
+    // farm codes show on hover only (tooltip); permanent labels cluttered the imagery
 
     // ---- point layers with icons
     const meterIdx = new Map();
@@ -1091,7 +1094,7 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
     function renderSide() {
       const inScope = feats.map((f) => f.properties);
       const cats = [...groupBy(inScope, (f) => catOf(f, mode)[0])].map(([k, a]) => [k, catOf(a[0], mode)[1], catOf(a[0], mode)[2], a.length]).sort((a, b) => mode === "cluster" ? (!a[0]) - (!b[0]) || a[0].localeCompare(b[0], undefined, { numeric: true }) : b[3] - a[3]);
-      const ptRow = (key, kind, label, n) => `<div class="mrow ${show[key] ? "" : "off"}" data-pt="${key}"><span class="ico-b mk ${kind}" style="transform:none;border-radius:6px;border:0;box-shadow:none">${ico(MK[kind])}</span><b class="num">${fmt(n)}</b><span>${label}</span></div>`;
+      const ptRow = (key, kind, label, n) => `<div class="mrow ${show[key] ? "" : "off"}" data-pt="${key}"><span class="ico-b mk mini ${kind}" style="width:26px;height:26px">${ico(MK[kind])}</span><b class="num">${fmt(n)}</b><span>${label}</span></div>`;
       const clKeys = CL_KEYS.filter((k) => feats.some((f) => f.properties.cluster === k));
       document.getElementById("mside").innerHTML = `
         <h1>${L("الخريطة الرئيسية", "Main map")}</h1>
