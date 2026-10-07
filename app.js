@@ -911,7 +911,9 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
     PROD_STEPS.forEach(([m], k) => { if (v >= m) i = k; });
     return i;
   };
-  const CLUSTER = { 1: "#BA9863", 2: "#14332D", 3: "#986018", 4: "#402022", 5: "#E2C6AA", 6: "#805E45", 7: "#D6AD68", COD: "#D08B67" };
+  // clusters 1–4: approved colours from the data owner's cluster map (Released/Leased Farms by Cluster);
+  // 5–7 and COD have no approved colour there, so they take RCU palette tones
+  const CLUSTER = { 1: "#2BA5BA", 2: "#0080FF", 3: "#149414", 4: "#8014C8", 5: "#BA9863", 6: "#805E45", 7: "#D6AD68", COD: "#3D3936" };
   const CL_KEYS = ["1", "2", "3", "4", "5", "6", "7", "COD"];
   const CLUSTER_X = ["#3D3936", "#805E45", "#14332D", "#BA9863"];
   // category of a farm under each colour mode -> [key, label, colour]
