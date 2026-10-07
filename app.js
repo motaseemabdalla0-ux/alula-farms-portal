@@ -222,7 +222,7 @@
 
   // ------------------------------------------------------------ shared UI (platform components)
   const kpi = (icon, label, value, sub = "", opt = {}) =>
-    `<div class="kpi ${opt.tint || ""}"><div class="kl">${chip(icon, "ic sm")}<span>${label}</span></div><div class="kv ${opt.cls || ""}">${value}</div>${sub ? `<div class="ks ${opt.subCls || ""}">${sub}</div>` : ""}</div>`;
+    `<div class="kpi ${opt.tint || ""}"${opt.tip ? tipAttrs(label, opt.tip) : ""}><div class="kl">${chip(icon, "ic sm")}<span>${label}</span></div><div class="kv ${opt.cls || ""}">${value}</div>${sub ? `<div class="ks ${opt.subCls || ""}">${sub}</div>` : ""}</div>`;
   const PAGE_SIZES = [5, 10, 25, 50];
   let PAGE_SIZE = 10;
   try { const v = +localStorage.getItem("page-size"); if (PAGE_SIZES.includes(v)) PAGE_SIZE = v; } catch { /* storage blocked */ }
@@ -243,7 +243,7 @@
   };
   const chip = (icon, cls = "ic") => `<span class="${cls}" style="--c:${ICON_TONE[icon] || "#986018"}">${ico(icon)}</span>`;
   const card = (icon, title, body, opt = {}) =>
-    `<section class="card ${opt.span || "c12"}"><div class="sec-h"><h2>${chip(icon)}${title}</h2>${opt.action || ""}</div>${body}</section>`;
+    `<section class="card ${opt.span || "c12"}"${opt.tip ? tipAttrs(title, opt.tip) : ""}><div class="sec-h"><h2>${chip(icon)}${title}${opt.tip ? `<span class="tip-dot" aria-hidden="true">${ico("info")}</span>` : ""}</h2>${opt.action || ""}</div>${body}</section>`;
   const head = (title, sub = "", tools = "") => `<div class="head"><div><h1>${title}</h1>${sub ? `<p>${sub}</p>` : ""}</div>${tools ? `<div class="tools">${tools}</div>` : ""}</div>`;
   const scopePick = () => "";
   function prow(label, value, segs, max) {
@@ -262,8 +262,11 @@
       acc += x.value;
       return `${x.color} ${a}deg ${(acc / total) * 360}deg`;
     });
-    return `<div class="donut"><div class="r" style="background:conic-gradient(${stops.join(",")})"><b class="num">${fmt(total)}<small>${U.farms()}</small></b></div><ul>${items
-      .map((x) => `<li><span class="sw" style="background:${x.color}"></span><span>${esc(x.name)}</span><b class="num">${fmt(x.value)}</b><span class="muted num" style="width:38px;text-align:end;font-size:12px">${Math.round((x.value / total) * 100)}%</span></li>`)
+    const share = (x) => Math.round((x.value / total) * 100);
+    const say = (x) => L(`${fmt(x.value)} مزرعة — ${share(x)}% من ${fmt(total)} مزرعة. انقر لعرضها.`, `${fmt(x.value)} farms — ${share(x)}% of ${fmt(total)}. Click to list them.`);
+    const slices = JSON.stringify(items.map((x) => [x.value, x.name, say(x)]));
+    return `<div class="donut"><div class="r" data-slices="${esc(slices)}" style="background:conic-gradient(${stops.join(",")})"><b class="num">${fmt(total)}<small>${U.farms()}</small></b></div><ul>${items
+      .map((x) => `<li${tipAttrs(x.name, say(x))}><span class="sw" style="background:${x.color}"></span><span>${esc(x.name)}</span><b class="num">${fmt(x.value)}</b><span class="muted num" style="width:38px;text-align:end;font-size:12px">${Math.round((x.value / total) * 100)}%</span></li>`)
       .join("")}</ul></div>`;
   }
   const groupBy = (arr, fn) => {
@@ -318,51 +321,54 @@
     app.innerHTML = `
       ${head(L("لوحة مؤشرات المزارع المنزوعة", "AlUla Expropriated Farms Dashboard"), L("انقر على أي رقم أو شريط لعرض المزارع التي خلفه", "Click any figure or bar to see the farms behind it"))}
       <div class="kpis k6">
-        <div class="kpi green clickable" ${go("/farms", keep)}><div class="kl">${chip("sprout", "ic sm")}<span>${L("عدد المزارع", "Farms")}</span></div><div class="kv t-primary">${fmt(F.length)}</div><div class="ks t-primary">${L(`${fmt(T.leased)} مؤجرة · ${fmt(F.length - T.leased)} غير مؤجرة`, `${fmt(T.leased)} leased · ${fmt(F.length - T.leased)} not`)}</div></div>
-        <div class="kpi clickable" ${go("/farms", { ...keep, sort: "area_ha", dir: "desc" })}><div class="kl">${chip("ruler", "ic sm")}<span>${L("المساحة الإجمالية", "Total area")}</span></div><div class="kv">${fmt(T.area, 0)} <small>${L("هكتار", "ha")}</small></div><div class="ks">${F.length ? L(`${fmt(T.area / F.length, 2)} هكتار / مزرعة`, `${fmt(T.area / F.length, 2)} ha / farm`) : ""}</div></div>
-        <div class="kpi clickable" ${go("/farms", { ...keep, sort: "date_trees", dir: "desc" })}><div class="kl">${chip("palm", "ic sm")}<span>${L("أشجار النخيل", "Date palms")}</span></div><div class="kv">${fmt(T.palms)}</div><div class="ks">${F.length ? L(`${fmt(T.palms / F.length)} نخلة / مزرعة`, `${fmt(T.palms / F.length)} palms / farm`) : ""}</div></div>
-        <div class="kpi beige clickable" ${go("/farms", { ...keep, has: "production", sort: "prod_total", dir: "desc" })}><div class="kl">${chip("box", "ic sm")}<span>${L("إنتاج التمور 2026", "Date production 2026")}</span></div><div class="kv t-brown">${fmt(T.prod, 1)} <small>${U.t()}</small></div><div class="ks">${L(`من ${fmt(prod.length)} مزرعة`, `from ${fmt(prod.length)} farms`)}</div></div>
-        <div class="kpi clickable" ${go("/wells", { scope: params.scope })}><div class="kl">${chip("droplet", "ic sm")}<span>${L("الآبار", "Wells")}</span></div><div class="kv">${fmt(T.wells)}</div><div class="ks ${T.wi ? "t-danger" : ""}">${L(`${fmt(T.wa)} نشطة · ${fmt(T.wi)} متوقفة`, `${fmt(T.wa)} active · ${fmt(T.wi)} inactive`)}</div></div>
-        <div class="kpi clickable" ${go("/meters", {})}><div class="kl">${chip("meter", "ic sm")}<span>${L("عدادات الكهرباء", "Power meters")}</span></div><div class="kv">${fmt(T.meters)}</div><div class="ks t-primary">${L(`${fmt(T.mw)} تعمل · ${fmt(T.mn)} لا تعمل`, `${fmt(T.mw)} working · ${fmt(T.mn)} not working`)}</div></div>
+        <div class="kpi green clickable" ${go("/farms", keep)} ${tipAttrs(L("عدد المزارع", "Farms"), L(`كل المزارع المنزوعة في المخطط. منها ${fmt(T.leased)} مؤجرة (كلياً أو جزئياً) و${fmt(F.length - T.leased)} غير مؤجرة. انقر لعرض القائمة.`, `All expropriated farms in the plan: ${fmt(T.leased)} leased (fully or partly) and ${fmt(F.length - T.leased)} not leased. Click to list them.`))}><div class="kl">${chip("sprout", "ic sm")}<span>${L("عدد المزارع", "Farms")}</span></div><div class="kv t-primary">${fmt(F.length)}</div><div class="ks t-primary">${L(`${fmt(T.leased)} مؤجرة · ${fmt(F.length - T.leased)} غير مؤجرة`, `${fmt(T.leased)} leased · ${fmt(F.length - T.leased)} not`)}</div></div>
+        <div class="kpi clickable" ${go("/farms", { ...keep, sort: "area_ha", dir: "desc" })} ${tipAttrs(L("المساحة الإجمالية", "Total area"), L(`مجموع مساحات المزارع محسوبة من حدودها على الخريطة. الهكتار = 10,000 م². متوسط المزرعة ${fmt(T.area / (F.length || 1), 2)} هكتار.`, `Sum of farm areas measured from their map boundaries (1 ha = 10,000 m²). Average farm: ${fmt(T.area / (F.length || 1), 2)} ha.`))}><div class="kl">${chip("ruler", "ic sm")}<span>${L("المساحة الإجمالية", "Total area")}</span></div><div class="kv">${fmt(T.area, 0)} <small>${L("هكتار", "ha")}</small></div><div class="ks">${F.length ? L(`${fmt(T.area / F.length, 2)} هكتار / مزرعة`, `${fmt(T.area / F.length, 2)} ha / farm`) : ""}</div></div>
+        <div class="kpi clickable" ${go("/farms", { ...keep, sort: "date_trees", dir: "desc" })} ${tipAttrs(L("أشجار النخيل", "Date palms"), L("عدد أشجار النخيل المسجّلة في كل المزارع، وتحته متوسط عدد النخيل في المزرعة الواحدة.", "Date palms recorded across all farms, with the average per farm below."))}><div class="kl">${chip("palm", "ic sm")}<span>${L("أشجار النخيل", "Date palms")}</span></div><div class="kv">${fmt(T.palms)}</div><div class="ks">${F.length ? L(`${fmt(T.palms / F.length)} نخلة / مزرعة`, `${fmt(T.palms / F.length)} palms / farm`) : ""}</div></div>
+        <div class="kpi beige clickable" ${go("/farms", { ...keep, has: "production", sort: "prod_total", dir: "desc" })} ${tipAttrs(L("إنتاج التمور 2026", "Date production 2026"), L(`إجمالي ما أنتجته المزارع من التمور في موسم 2026 بالطن، من ${fmt(prod.length)} مزرعة لها بيانات إنتاج.`, `Total dates produced in the 2026 season, in tonnes, from ${fmt(prod.length)} farms with production data.`))}><div class="kl">${chip("box", "ic sm")}<span>${L("إنتاج التمور 2026", "Date production 2026")}</span></div><div class="kv t-brown">${fmt(T.prod, 1)} <small>${U.t()}</small></div><div class="ks">${L(`من ${fmt(prod.length)} مزرعة`, `from ${fmt(prod.length)} farms`)}</div></div>
+        <div class="kpi clickable" ${go("/wells", { scope: params.scope })} ${tipAttrs(L("الآبار", "Wells"), L(`عدد الآبار في سجل آبار المزارع: ${fmt(T.wa)} نشطة تعمل الآن و${fmt(T.wi)} متوقفة.`, `Wells in the farms register: ${fmt(T.wa)} active and ${fmt(T.wi)} inactive.`))}><div class="kl">${chip("droplet", "ic sm")}<span>${L("الآبار", "Wells")}</span></div><div class="kv">${fmt(T.wells)}</div><div class="ks ${T.wi ? "t-danger" : ""}">${L(`${fmt(T.wa)} نشطة · ${fmt(T.wi)} متوقفة`, `${fmt(T.wa)} active · ${fmt(T.wi)} inactive`)}</div></div>
+        <div class="kpi clickable" ${go("/meters", {})} ${tipAttrs(L("عدادات الكهرباء", "Power meters"), L(`عدادات الكهرباء المرتبطة بالمزارع: ${fmt(T.mw)} تعمل و${fmt(T.mn)} لا تعمل حسب الكشف الكهربائي.`, `Power meters linked to the farms: ${fmt(T.mw)} working and ${fmt(T.mn)} not working per inspection.`))}><div class="kl">${chip("meter", "ic sm")}<span>${L("عدادات الكهرباء", "Power meters")}</span></div><div class="kv">${fmt(T.meters)}</div><div class="ks t-primary">${L(`${fmt(T.mw)} تعمل · ${fmt(T.mn)} لا تعمل`, `${fmt(T.mw)} working · ${fmt(T.mn)} not working`)}</div></div>
       </div>
       <div class="grid12">
         ${card("trend", L("إنتاج التمور حسب الدرجة (طن)", "Date production by grade (t)"), prod.length ? `
           <div class="grid12" style="margin:0">
             <div class="c6"><div class="sub-h">${L("حسب الجهة", "By side")}</div>
-              ${sides.map((x) => clickRow(prow(`${x.s ? t(x.s) : L("غير محدد", "Not specified")} (${fmt(x.n)} ${U.farms()})`, `${fmt(x.g1 + x.g2 + x.g3, 1)} ${U.t()}`, [{ v: x.g1, c: GRADE[0], t: G[0] }, { v: x.g2, c: GRADE[1], t: G[1] }, { v: x.g3, c: GRADE[2], t: G[2] }], T.prod), x.s ? href("/farms", { side: x.s, has: "production" }) : null)).join("")}
-              ${clickRow(prow(`${L("الإجمالي", "Total")} (${fmt(prod.length)} ${U.farms()})`, `<b>${fmt(T.prod, 1)} ${U.t()}</b>`, [{ v: T.g1, c: GRADE[0], t: G[0] }, { v: T.g2, c: GRADE[1], t: G[1] }, { v: T.g3, c: GRADE[2], t: G[2] }], T.prod), href("/farms", { has: "production" }))}
+              ${sides.map((x) => tipOn(clickRow(prow(`${x.s ? t(x.s) : L("غير محدد", "Not specified")} (${fmt(x.n)} ${U.farms()})`, `${fmt(x.g1 + x.g2 + x.g3, 1)} ${U.t()}`, [{ v: x.g1, c: GRADE[0], t: G[0] }, { v: x.g2, c: GRADE[1], t: G[1] }, { v: x.g3, c: GRADE[2], t: G[2] }], T.prod), x.s ? href("/farms", { side: x.s, has: "production" }) : null), x.s ? t(x.s) : L("غير محدد", "Not specified"), L(`${fmt(x.g1 + x.g2 + x.g3, 1)} طن من ${fmt(x.n)} مزرعة: درجة أولى ${fmt(x.g1, 1)}، ثانية ${fmt(x.g2, 1)}، ثالثة ${fmt(x.g3, 1)} طن. انقر لعرض المزارع.`, `${fmt(x.g1 + x.g2 + x.g3, 1)} t from ${fmt(x.n)} farms: grade 1 ${fmt(x.g1, 1)}, grade 2 ${fmt(x.g2, 1)}, grade 3 ${fmt(x.g3, 1)} t. Click to list the farms.`))).join("")}
+              ${tipOn(clickRow(prow(`${L("الإجمالي", "Total")} (${fmt(prod.length)} ${U.farms()})`, `<b>${fmt(T.prod, 1)} ${U.t()}</b>`, [{ v: T.g1, c: GRADE[0], t: G[0] }, { v: T.g2, c: GRADE[1], t: G[1] }, { v: T.g3, c: GRADE[2], t: G[2] }], T.prod), href("/farms", { has: "production" })), L("الإجمالي", "Total"), L(`كل إنتاج المزارع ${fmt(T.prod, 1)} طن. الألوان داخل الشريط تبين نصيب كل درجة من الإجمالي.`, `All farms: ${fmt(T.prod, 1)} t. The colours inside the bar show each grade's share.`))}
             </div>
             <div class="c6"><div class="sub-h">${L("حسب الدرجة", "By grade")}</div>
               ${[[L("درجة أولى — جودة عالية", "Grade 1 — high quality"), T.g1, "High"], [L("درجة ثانية — متوسطة", "Grade 2 — medium"), T.g2, "Medium"], [L("درجة ثالثة — شيص", "Grade 3 — Shees (low)"), T.g3, "Low"]]
-                .map(([lab, v, q], i) => clickRow(prow(lab, `${fmt(v, 1)} ${U.t()} (${fmt(pct(v, T.prod), 0)}%)`, [{ v, c: GRADE[i] }], T.prod), href("/farms", { ...keep, quality: q }))).join("")}
+                .map(([lab, v, q], i) => tipOn(clickRow(prow(lab, `${fmt(v, 1)} ${U.t()} (${fmt(pct(v, T.prod), 0)}%)`, [{ v, c: GRADE[i] }], T.prod), href("/farms", { ...keep, quality: q })), lab, L(`${fmt(v, 1)} طن، أي ${fmt(pct(v, T.prod), 0)}% من كل الإنتاج. انقر لعرض المزارع بهذه الجودة.`, `${fmt(v, 1)} t, ${fmt(pct(v, T.prod), 0)}% of all production. Click to list farms of this quality.`))).join("")}
             </div>
-          </div>${legend(G.map((g, i) => [g, GRADE[i]]))}` : `<p class="muted">${L("لا توجد بيانات إنتاج لهذا النطاق.", "No production data for this scope.")}</p>`, { span: "c7" })}
+          </div>${legend(G.map((g, i) => [g, GRADE[i]]))}` : `<p class="muted">${L("لا توجد بيانات إنتاج لهذا النطاق.", "No production data for this scope.")}</p>`, { span: "c7", tip: L("كمية التمور المنتجة مقسّمة حسب الجهة وحسب الدرجة. الدرجة الأولى أعلى جودة والثالثة (الشيص) أقلها. طول الشريط = نصيبه من الإجمالي.", "Dates produced, split by side and by grade. Grade 1 is the best quality, grade 3 (Shees) the lowest. Bar length = share of the total.") })}
         ${card("gauge", L("مؤشرات التشغيل", "Operational indicators"), `<div class="rings">
-            <div class="ring clickable" ${go("/meters", { status: "Working" })}>${ringInner(pct(T.mw, T.meters), C.green, L("عدادات تعمل", "Meters working"))}</div>
-            <div class="ring clickable" ${go("/wells", { scope: params.scope })}>${ringInner(pct(T.wa, T.wells), C.brown, L("آبار نشطة", "Wells active"))}</div>
-            <div class="ring clickable" ${go("/farms", { lease: "Full,Partial,Mixed" })}>${ringInner(pct(T.leased, F.length), C.gold, L("مزارع مؤجرة", "Farms leased"))}</div>
+            <div class="ring clickable" ${go("/meters", { status: "Working" })}${tipAttrs(L("عدادات تعمل", "Meters working"), L(`${fmt(T.mw)} من ${fmt(T.meters)} عداد تعمل. كلما امتلأت الدائرة كان الوضع أفضل.`, `${fmt(T.mw)} of ${fmt(T.meters)} meters work. The fuller the ring, the better.`))}>${ringInner(pct(T.mw, T.meters), C.green, L("عدادات تعمل", "Meters working"))}</div>
+            <div class="ring clickable" ${go("/wells", { scope: params.scope })}${tipAttrs(L("آبار نشطة", "Wells active"), L(`${fmt(T.wa)} من ${fmt(T.wells)} بئر نشطة، والباقي متوقف.`, `${fmt(T.wa)} of ${fmt(T.wells)} wells are active; the rest are inactive.`))}>${ringInner(pct(T.wa, T.wells), C.brown, L("آبار نشطة", "Wells active"))}</div>
+            <div class="ring clickable" ${go("/farms", { lease: "Full,Partial,Mixed" })}${tipAttrs(L("مزارع مؤجرة", "Farms leased"), L(`${fmt(T.leased)} مزرعة مؤجرة من ${fmt(F.length)}. النسبة المنخفضة تعني أن أغلب المزارع ما زالت غير مؤجرة.`, `${fmt(T.leased)} of ${fmt(F.length)} farms are leased. A low share means most farms are still unleased.`))}>${ringInner(pct(T.leased, F.length), C.gold, L("مزارع مؤجرة", "Farms leased"))}</div>
           </div>
-          <div class="strip" style="margin-top:16px"><div class="clickable" ${go("/farms", { ...keep, has: "production" })}><b class="num">${fmt(prod.length)}</b><span>${L("مزارع لها إنتاج", "Producing farms")}</span></div><div><b class="num">${fmt(T.palms ? (T.prod * 1000) / T.palms : 0, 1)}</b><span>${L("كجم / نخلة", "kg / palm")}</span></div><div class="clickable" ${go("/farms", { ...keep, deserted: "Yes" })}><b class="num">${fmt(F.filter((f) => f.deserted === "Yes").length)}</b><span>${L("مرشحة للترك", "To be deserted")}</span></div></div>`, { span: "c5" })}
+          <div class="strip" style="margin-top:16px"><div class="clickable" ${go("/farms", { ...keep, has: "production" })}${tipAttrs(L("مزارع لها إنتاج", "Producing farms"), L("عدد المزارع التي سُجّل لها إنتاج تمور هذا الموسم.", "Farms with recorded date production this season."))}><b class="num">${fmt(prod.length)}</b><span>${L("مزارع لها إنتاج", "Producing farms")}</span></div><div${tipAttrs(L("كجم / نخلة", "kg / palm"), L("متوسط إنتاج النخلة الواحدة من التمور بالكيلوجرام (الإنتاج ÷ عدد النخيل).", "Average dates per palm in kg (production ÷ palms)."))}><b class="num">${fmt(T.palms ? (T.prod * 1000) / T.palms : 0, 1)}</b><span>${L("كجم / نخلة", "kg / palm")}</span></div><div class="clickable" ${go("/farms", { ...keep, deserted: "Yes" })}${tipAttrs(L("مرشحة للترك", "To be deserted"), L("مزارع أوصت الدراسة بتركها لضعف جدواها. انقر لعرضها.", "Farms the study recommends deserting. Click to list them."))}><b class="num">${fmt(F.filter((f) => f.deserted === "Yes").length)}</b><span>${L("مرشحة للترك", "To be deserted")}</span></div></div>`, { span: "c5", tip: L("ثلاث نسب سريعة لحالة المزارع: العدادات التي تعمل، والآبار النشطة، والمزارع المؤجرة. وتحتها أرقام مختصرة عن الإنتاج.", "Three quick health ratios: working meters, active wells and leased farms, with short production figures below.") })}
       </div>
       <div class="grid12">
-        ${card("pie", L("جودة التمور", "Date quality"), donutLinks(quality, (x) => (x.key ? href("/farms", { ...keep, quality: x.key }) : href("/farms", { ...keep, has: "production" }))), { span: "c6" })}
-        ${card("layers", L("حالة التأجير", "Lease status"), donutLinks(lease, (x) => (x.key ? href("/farms", { ...keep, lease: x.key }) : null)), { span: "c6" })}
+        ${card("pie", L("جودة التمور", "Date quality"), donutLinks(quality, (x) => (x.key ? href("/farms", { ...keep, quality: x.key }) : href("/farms", { ...keep, has: "production" }))), { span: "c6", tip: L("توزيع المزارع المنتجة حسب جودة تمورها. «غير مصنفة» أي لم تُسجّل جودتها، وأغلبها مزارع الشمال.", "Producing farms by date quality. “Unclassified” means no quality was recorded (mostly northern farms).") })}
+        ${card("layers", L("حالة التأجير", "Lease status"), donutLinks(lease, (x) => (x.key ? href("/farms", { ...keep, lease: x.key }) : null)), { span: "c6", tip: L("كم مزرعة مؤجرة وكم غير مؤجرة. «مختلطة» أي بعض قطع المزرعة مؤجرة كلياً وبعضها جزئياً.", "How many farms are leased or not. “Mixed” means some plots are fully leased and others partly.") })}
       </div>
       <div class="grid12">
-        ${card("droplet", L("الآبار حسب المنطقة", "Wells by region"), regions.length ? regions.map((r) => clickRow(prow(r.r ? t(r.r) : L("غير محدد", "Not specified"), activeOf(r.a, r.a + r.i), [{ v: r.a, c: C.green }, { v: r.i, c: C.red }], regMax), r.r ? href("/farms", { ...keep, region: r.r, has: "wells" }) : null)).join("") + legend([[L("آبار نشطة", "Active wells"), C.green], [L("آبار متوقفة", "Inactive wells"), C.red]]) : `<p class="muted">${L("لا توجد آبار مسجلة لهذا النطاق.", "No wells recorded for this scope.")}</p>`, { span: "c5" })}
+        ${card("droplet", L("الآبار حسب المنطقة", "Wells by region"), regions.length ? regions.map((r) => tipOn(clickRow(prow(r.r ? t(r.r) : L("غير محدد", "Not specified"), activeOf(r.a, r.a + r.i), [{ v: r.a, c: C.green }, { v: r.i, c: C.red }], regMax), r.r ? href("/farms", { ...keep, region: r.r, has: "wells" }) : null), r.r ? t(r.r) : L("غير محدد", "Not specified"), L(`${fmt(r.a + r.i)} بئر: ${fmt(r.a)} نشطة (الجزء الأخضر) و${fmt(r.i)} متوقفة (الجزء البني). انقر لعرض مزارع المنطقة.`, `${fmt(r.a + r.i)} wells: ${fmt(r.a)} active (green) and ${fmt(r.i)} inactive (ochre). Click to list the farms.`))).join("") + legend([[L("آبار نشطة", "Active wells"), C.green], [L("آبار متوقفة", "Inactive wells"), C.red]]) : `<p class="muted">${L("لا توجد آبار مسجلة لهذا النطاق.", "No wells recorded for this scope.")}</p>`, { span: "c5", tip: L("عدد الآبار في كل منطقة. الجزء الأخضر من الشريط آبار نشطة، والجزء البني آبار متوقفة.", "Wells per region. The green part of each bar is active wells, the ochre part inactive.") })}
         ${card("award", L("أعلى 5 مزارع إنتاجاً", "Top 5 producing farms"), `<div class="scroll"><table class="tbl"><thead><tr><th>${L("رمز المزرعة", "Farm code")}</th><th>${L("المشروع", "Project")}</th><th>${L("الجهة", "Side")}</th><th>${L("النخيل", "Palms")}</th><th>${L("الإنتاج (طن)", "Production (t)")}</th><th>${L("الجودة", "Quality")}</th></tr></thead><tbody>
-          ${top.map((f) => `<tr class="clickable" ${go(`/farm/${encodeURIComponent(f.code)}`, {})}><td>${farmLink(f.code)}</td><td>${esc(t(f.project))}</td><td>${t(f.side)}</td><td class="num">${fmt(f.date_trees)}</td><td class="num"><b>${fmt(f.prod_total, 2)}</b></td><td>${badge(f.prod_quality)}</td></tr>`).join("")}
-          </tbody></table></div>`, { span: "c7", action: `<a class="link" href="${href("/farms", { ...keep, sort: "prod_total", dir: "desc" })}">${L("كل المزارع", "All farms")}</a>` })}
+          ${top.map((f) => `<tr class="clickable" ${go(`/farm/${encodeURIComponent(f.code)}`, {})}${tipAttrs(f.code, L(`${fmt(f.prod_total, 1)} طن من ${fmt(f.date_trees)} نخلة. انقر لفتح ملف المزرعة.`, `${fmt(f.prod_total, 1)} t from ${fmt(f.date_trees)} palms. Click to open the farm profile.`))}><td>${farmLink(f.code)}</td><td>${esc(t(f.project))}</td><td>${t(f.side)}</td><td class="num">${fmt(f.date_trees)}</td><td class="num"><b>${fmt(f.prod_total, 2)}</b></td><td>${badge(f.prod_quality)}</td></tr>`).join("")}
+          </tbody></table></div>`, { span: "c7", tip: L("أكثر خمس مزارع إنتاجاً للتمور هذا الموسم. انقر على أي صف لفتح ملف المزرعة.", "The five farms that produced the most dates this season. Click a row to open its profile."), action: `<a class="link" href="${href("/farms", { ...keep, sort: "prod_total", dir: "desc" })}">${L("كل المزارع", "All farms")}</a>` })}
       </div>`;
 
   }
+  // adds a hover explanation to the first element of an HTML snippet
+  const tipAttrs = (title, text) => ` data-tip-t="${esc(title)}" data-tip="${esc(text)}"`;
+  const tipOn = (html, title, text) => html.replace(/^(\s*<[a-z0-9]+)/i, `$1${tipAttrs(title, text)}`);
   const clickRow = (html, target) => (target ? html.replace('<div class="prow">', `<div class="prow clickable" data-go="${esc(target)}">`) : html);
   const ringInner = (p, color, label) => `<div class="r" style="background:conic-gradient(${color} ${p * 3.6}deg, var(--track) 0)"><b class="num">${fmt(p, 1)}%</b></div><span>${label}</span>`;
   function donutLinks(items, target) {
     let i = 0;
-    return donut(items).replace(/<li>/g, () => {
+    return donut(items).replace(/<li /g, () => {
       const tg = target(items[i++]);
-      return tg ? `<li class="clickable" data-go="${esc(tg)}">` : "<li>";
+      return tg ? `<li class="clickable" data-go="${esc(tg)}" ` : "<li ";
     });
   }
 
@@ -1590,6 +1596,55 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
       document.getElementById("tb-updated").title = hm;
     }
   }
+
+  // ------------------------------------------------------------ hover explanations
+  const tipEl = document.createElement("div");
+  tipEl.className = "tip";
+  tipEl.setAttribute("role", "tooltip");
+  tipEl.hidden = true;
+  document.body.appendChild(tipEl);
+  let tipKey = "";
+  function tipFor(target, x, y) {
+    const d = target.closest?.(".donut .r[data-slices]");
+    if (d) {
+      const r = d.getBoundingClientRect();
+      const dx = x - (r.left + r.width / 2), dy = y - (r.top + r.height / 2);
+      const rad = Math.hypot(dx, dy);
+      if (rad > r.width * 0.3 && rad < r.width / 2) {
+        const ang = ((Math.atan2(dx, -dy) * 180) / Math.PI + 360) % 360; // 0° at the top, clockwise like conic-gradient
+        const sl = JSON.parse(d.dataset.slices);
+        const tot = sl.reduce((a, s) => a + s[0], 0) || 1;
+        let acc = 0;
+        for (const [v, title, text] of sl) { acc += v; if (ang <= (acc / tot) * 360) return [title, text]; }
+      }
+    }
+    const el = target.closest?.("[data-tip]");
+    return el ? [el.dataset.tipT || "", el.dataset.tip] : null;
+  }
+  function showTip(t, x, y) {
+    if (!t) { tipEl.hidden = true; tipKey = ""; return; }
+    const key = t.join("|");
+    if (key !== tipKey) { tipEl.innerHTML = `${t[0] ? `<b>${esc(t[0])}</b>` : ""}<span>${esc(t[1])}</span>`; tipKey = key; }
+    tipEl.hidden = false;
+    const w = tipEl.offsetWidth, h = tipEl.offsetHeight;
+    let left = x + 14, top = y + 18;
+    if (left + w > innerWidth - 8) left = x - w - 14;
+    if (top + h > innerHeight - 8) top = y - h - 14;
+    tipEl.style.left = `${Math.max(8, left)}px`;
+    tipEl.style.top = `${Math.max(8, top)}px`;
+  }
+  document.addEventListener("mousemove", (e) => showTip(e.target.closest?.(".leaflet-container") ? null : tipFor(e.target, e.clientX, e.clientY), e.clientX, e.clientY));
+  document.addEventListener("mouseleave", () => showTip(null));
+  document.addEventListener("scroll", () => showTip(null), true);
+  // phones have no hover: tapping the ⓘ in a card header shows that card's explanation
+  document.addEventListener("click", (e) => {
+    const dot = e.target.closest?.(".tip-dot");
+    if (!dot) { if (!tipEl.hidden && matchMedia("(hover: none)").matches) showTip(null); return; }
+    e.stopPropagation();
+    const el = dot.closest("[data-tip]"); const r = dot.getBoundingClientRect();
+    showTip([el.dataset.tipT || "", el.dataset.tip], r.left, r.bottom);
+  }, true);
+  document.addEventListener("focusin", (e) => { const el = e.target.closest?.("[data-tip]"); if (!el) return showTip(null); const r = el.getBoundingClientRect(); showTip([el.dataset.tipT || "", el.dataset.tip], r.left + 10, r.bottom - 10); });
 
   // ------------------------------------------------------------ boot
   hydrate();

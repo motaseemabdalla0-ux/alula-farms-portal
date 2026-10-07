@@ -557,3 +557,15 @@ th a:hover .sarr svg { stroke: #8f877f; }
 [dir="rtl"] .pg.next svg { transform: scaleX(-1); }
 .pg-gap { color: var(--muted2); padding: 0 2px; }
 @media (max-width: 767px) { .pager2 { border-radius: 10px; justify-content: center; } }
+/* hover explanations */
+.tip { position: fixed; z-index: 9999; max-width: 300px; padding: 10px 12px; border-radius: 10px; background: #3D3936; color: #fff; box-shadow: 0 8px 24px rgb(0 0 0 / .25); pointer-events: none; font-size: 13px; line-height: 1.6; display: flex; flex-direction: column; gap: 2px; border-top: 3px solid #BA9863; }
+.tip b { font-size: 13.5px; color: #E2C6AA; }
+.tip span { color: #f3eee8; }
+.tip-dot { display: inline-grid; place-items: center; margin-inline-start: 2px; color: var(--muted2); opacity: .7; }
+.tip-dot svg.i { width: 15px; height: 15px; }
+[data-tip] { cursor: help; }
+.clickable[data-tip], [data-tip].clickable, a[data-tip] { cursor: pointer; }
+.donut .r[data-slices] { cursor: pointer; }
+.prow[data-tip]:hover .ptrack, .donut li[data-tip]:hover { filter: brightness(1.04); }
+.donut li[data-tip]:hover { background: var(--panel2); border-radius: 6px; }
+.card[data-tip] { cursor: default; }
