@@ -1045,34 +1045,37 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
     // ---- side panel (summary + legend toggles, like the platform's "Main Map" panel)
     const ovOn = new Set();
     const ovLayers = {};
+    // each panel card: header checkbox turns the whole group on/off, the title folds the card open/closed
+    const openCards = new Set(["farms"]);
+    const mcard = (id, title, count, state, body) => `<div class="mcard ${openCards.has(id) ? "open" : ""}" data-card="${id}">
+      <div class="mcard-h"><input type="checkbox" data-master="${id}" data-state="${state}" ${state === "all" ? "checked" : ""} aria-label="${esc(title)}" /><button class="mcard-t" data-fold="${id}" aria-expanded="${openCards.has(id)}">${esc(title)}</button><span class="cnt num">${fmt(count)}</span><button class="mcard-c" data-fold="${id}" aria-label="${L("فتح/طي", "Expand/collapse")}">${ico("chev")}</button></div>
+      <div class="mcard-b">${body}</div></div>`;
+    const stateOf = (on, total) => (on === 0 ? "none" : on === total ? "all" : "some");
+    const WELL_KEYS = ["wellActive", "wellInactive", "wellOther", "wellReg"];
     function renderSide() {
       const inScope = feats.map((f) => f.properties);
       const cats = [...groupBy(inScope, (f) => catOf(f, mode)[0])].map(([k, a]) => [k, catOf(a[0], mode)[1], catOf(a[0], mode)[2], a.length]).sort((a, b) => mode === "cluster" ? (!a[0]) - (!b[0]) || a[0].localeCompare(b[0], undefined, { numeric: true }) : b[3] - a[3]);
       const ptRow = (key, kind, label, n) => `<div class="mrow ${show[key] ? "" : "off"}" data-pt="${key}"><span class="ico-b mk ${kind}" style="transform:none;border-radius:6px;border:0;box-shadow:none">${ico(MK[kind])}</span><b class="num">${fmt(n)}</b><span>${label}</span></div>`;
+      const clKeys = CL_KEYS.filter((k) => feats.some((f) => f.properties.cluster === k));
       document.getElementById("mside").innerHTML = `
         <h1>${L("الخريطة الرئيسية", "Main map")}</h1>
-        <div class="mcard"><div class="mcard-h"><span>${L("المزارع", "Farms")}</span><span class="cnt num">${fmt(inScope.length)}</span></div>
+        ${mcard("farms", L("المزارع", "Farms"), inScope.length, stateOf(cats.filter((c) => !hidden.has(c[0])).length, cats.length), `
           <div class="msub">${document.querySelector(`#mode option[value="${mode}"]`)?.textContent || ""} — ${L("انقر للإظهار/الإخفاء", "click to show/hide")}</div>
-          ${cats.map(([k, label, c, n]) => `<div class="mrow ${hidden.has(k) ? "off" : ""}" data-cat="${esc(k)}"><span class="dot" style="background:${c}"></span><b class="num">${fmt(n)}</b><span>${esc(label)}</span></div>`).join("")}
-        </div>
-        <div class="mcard"><div class="mcard-h"><span>${L("العناقيد", "Clusters")}</span><span class="cnt num">${fmt(feats.filter((f) => f.properties.cluster).length)}</span></div>
+          ${cats.map(([k, label, c, n]) => `<div class="mrow ${hidden.has(k) ? "off" : ""}" data-cat="${esc(k)}"><span class="dot" style="background:${c}"></span><b class="num">${fmt(n)}</b><span>${esc(label)}</span></div>`).join("")}`)}
+        ${mcard("clusters", L("العناقيد", "Clusters"), feats.filter((f) => f.properties.cluster).length, stateOf(clKeys.filter((k) => clOn.has(k)).length, clKeys.length), `
           <div class="msub">${L("حدّد عنقوداً أو أكثر لعرض مزارعه ملوّنة بلون العنقود", "Tick one or more clusters to show their farms in the cluster colour")}</div>
-          ${CL_KEYS.map((k) => [k, feats.filter((f) => f.properties.cluster === k).length]).filter(([, n]) => n).map(([k, n]) => `<label class="mrow" style="cursor:pointer"><input type="checkbox" data-cl="${k}" ${clOn.has(k) ? "checked" : ""} style="accent-color:${CLUSTER[k]}" /><span class="dot" style="background:${CLUSTER[k]}"></span><b class="num">${fmt(n)}</b><span>${clName(k)}</span></label>`).join("")}
-          ${clOn.size ? `<button class="sel-line" id="clclear" style="border:0;background:none;color:var(--main);font-weight:600;cursor:pointer;padding:4px 0">${L("إلغاء تحديد العناقيد", "Clear clusters")}</button>` : ""}
-        </div>
-        <div class="mcard"><div class="mcard-h"><span>${L("عدادات الكهرباء", "Power meters")}</span><span class="cnt num">${fmt(mOk.getLayers().length + mBad.getLayers().length)}</span></div>
-          ${ptRow("meterOk", "meter-ok", L("تعمل", "Working"), mOk.getLayers().length)}${ptRow("meterBad", "meter-bad", L("لا تعمل", "Not working"), mBad.getLayers().length)}
-        </div>
-        <div class="mcard"><div class="mcard-h"><span>${L("الآبار داخل المزارع", "Wells inside farms")}</span><span class="cnt num">${fmt(wReg.getLayers().length + wells.length)}</span></div>
+          ${clKeys.map((k) => `<label class="mrow" style="cursor:pointer"><input type="checkbox" data-cl="${k}" ${clOn.has(k) ? "checked" : ""} style="accent-color:${CLUSTER[k]}" /><span class="dot" style="background:${CLUSTER[k]}"></span><b class="num">${fmt(feats.filter((f) => f.properties.cluster === k).length)}</b><span>${clName(k)}</span></label>`).join("")}`)}
+        ${mcard("meters", L("عدادات الكهرباء", "Power meters"), mOk.getLayers().length + mBad.getLayers().length, stateOf([show.meterOk, show.meterBad].filter(Boolean).length, 2),
+          ptRow("meterOk", "meter-ok", L("تعمل", "Working"), mOk.getLayers().length) + ptRow("meterBad", "meter-bad", L("لا تعمل", "Not working"), mBad.getLayers().length))}
+        ${mcard("wells", L("الآبار داخل المزارع", "Wells inside farms"), wReg.getLayers().length + wells.length, stateOf(WELL_KEYS.filter((k) => show[k]).length, 4), `
           <div class="msub">${L("الآبار الواقعة داخل حدود المزارع أو على بعد 10 م منها. حدّد النوع لإظهاره على الخريطة.", "Wells inside farm boundaries or within 10 m. Tick a type to show it on the map.")}</div>
           ${ptRow("wellActive", "well", L("آبار ممسوحة — نشطة", "Surveyed — active"), wGroups.Active.getLayers().length)}
           ${ptRow("wellInactive", "well-off", L("آبار ممسوحة — متوقفة", "Surveyed — inactive"), wGroups.Inactive.getLayers().length)}
           ${ptRow("wellOther", "well-new", L("آبار ممسوحة — خارج النطاق", "Surveyed — out of scope"), wGroups.other.getLayers().length)}
-          ${ptRow("wellReg", "well", L("مواقع آبار سجل الآبار", "Wells-register locations"), wReg.getLayers().length)}
-        </div>
-        <div class="mcard"><div class="mcard-h"><span>${L("طبقات إضافية", "Extra layers")}</span><span class="cnt num">${layers.length}</span></div>
-          ${layers.map((l, i) => `<label class="mrow" style="cursor:pointer"><input type="checkbox" data-ov="${esc(l.key)}" ${ovOn.has(l.key) ? "checked" : ""} style="accent-color:var(--main)" /><span class="dot" style="background:${OVERLAY_COLORS[i % OVERLAY_COLORS.length]}"></span><span style="flex:1">${esc(tt(l.title))}</span><small class="muted num">${fmt(l.features)}</small></label>`).join("")}
-        </div>`;
+          ${ptRow("wellReg", "well", L("مواقع آبار سجل الآبار", "Wells-register locations"), wReg.getLayers().length)}`)}
+        ${mcard("layers", L("طبقات إضافية", "Extra layers"), layers.length, stateOf(layers.filter((l) => ovOn.has(l.key)).length, layers.length),
+          layers.map((l, i) => `<label class="mrow" style="cursor:pointer"><input type="checkbox" data-ov="${esc(l.key)}" ${ovOn.has(l.key) ? "checked" : ""} style="accent-color:var(--main)" /><span class="dot" style="background:${OVERLAY_COLORS[i % OVERLAY_COLORS.length]}"></span><span style="flex:1">${esc(tt(l.title))}</span><small class="muted num">${fmt(l.features)}</small></label>`).join(""))}`;
+      document.querySelectorAll("#mside [data-master]").forEach((b) => (b.indeterminate = b.dataset.state === "some"));
     }
     renderSide();
     let legendOpen = true;
@@ -1101,13 +1104,28 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
       const pt = e.target.closest("[data-pt]");
       if (c) { hidden.has(c.dataset.cat) ? hidden.delete(c.dataset.cat) : hidden.add(c.dataset.cat); refreshFarms(); renderSide(); }
       if (pt) { show[pt.dataset.pt] = !show[pt.dataset.pt]; refreshPoints(); renderSide(); }
-      if (e.target.id === "clclear") { clOn.clear(); applyClusters(); }
+      const fold = e.target.closest("[data-fold]");
+      if (fold) { const id = fold.dataset.fold; openCards.has(id) ? openCards.delete(id) : openCards.add(id); fold.closest(".mcard").classList.toggle("open"); fold.closest(".mcard").querySelector(".mcard-t").setAttribute("aria-expanded", openCards.has(id)); }
     });
     side.addEventListener("change", async (e) => {
+      const ms = e.target.dataset.master;
+      if (ms) {
+        // header checkbox: a partly-on group switches fully on, a fully-on group switches off
+        const on = e.target.dataset.state !== "all";
+        openCards.add(ms);
+        if (ms === "farms") { hidden.clear(); if (!on) feats.forEach((f) => hidden.add(catOf(f.properties, mode)[0])); refreshFarms(); renderSide(); }
+        else if (ms === "clusters") { clOn.clear(); if (on) CL_KEYS.forEach((k) => feats.some((f) => f.properties.cluster === k) && clOn.add(k)); applyClusters(); }
+        else if (ms === "meters" || ms === "wells") { (ms === "meters" ? ["meterOk", "meterBad"] : WELL_KEYS).forEach((k) => (show[k] = on)); refreshPoints(); renderSide(); }
+        else if (ms === "layers") {
+          for (const b of side.querySelectorAll("input[data-ov]")) if (b.checked !== on) { b.checked = on; b.dispatchEvent(new Event("change", { bubbles: true })); }
+          renderSide();
+        }
+        return;
+      }
       if (e.target.dataset.cl) { e.target.checked ? clOn.add(e.target.dataset.cl) : clOn.delete(e.target.dataset.cl); return applyClusters(); }
       const key = e.target.dataset.ov;
       if (!key) return;
-      if (!e.target.checked) { ovOn.delete(key); ovLayers[key]?.remove(); return; }
+      if (!e.target.checked) { ovOn.delete(key); ovLayers[key]?.remove(); syncMaster(); return; }
       ovOn.add(key);
       if (!ovLayers[key]) {
         const i = layers.findIndex((l) => l.key === key);
@@ -1120,7 +1138,15 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
       }
       ovLayers[key].addTo(map);
       farmsLayer.bringToFront();
+      syncMaster();
     });
+    // keep the "Extra layers" header checkbox in step without re-rendering (re-rendering would drop focus mid-click)
+    function syncMaster() {
+      const b = side.querySelector('[data-master="layers"]');
+      if (!b) return;
+      const st = stateOf(layers.filter((l) => ovOn.has(l.key)).length, layers.length);
+      b.dataset.state = st; b.checked = st === "all"; b.indeterminate = st === "some";
+    }
     document.getElementById("mtab").onclick = () => { side.classList.toggle("closed"); setTimeout(() => map.invalidateSize(), 320); };
     document.getElementById("mode").onchange = (e) => {
       mode = e.target.value;

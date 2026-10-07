@@ -420,3 +420,13 @@ details.rec > div { padding: 0 14px 12px; overflow-x: auto; }
 .mlegend-n { color: #6b7280; margin-top: 6px; }
 .mk.mini { width: 18px; height: 18px; transform: none !important; border-radius: 5px !important; border-width: 0 !important; box-shadow: none !important; display: inline-grid; place-items: center; }
 .mk.mini svg { width: 11px; height: 11px; transform: none !important; }
+/* map panel cards: header checkbox toggles the group, title/chevron folds the card */
+.mcard-h { gap: 8px; margin-bottom: 0; }
+.mcard-h input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--main); cursor: pointer; flex-shrink: 0; margin: 0; }
+.mcard-t { flex: 1; text-align: start; border: 0; background: none; padding: 0; font: 700 14px Cairo, sans-serif; color: var(--ink); cursor: pointer; }
+.mcard-c { border: 0; background: none; padding: 2px; cursor: pointer; color: #6b7280; display: grid; place-items: center; }
+.mcard-c svg.i { width: 16px; height: 16px; transition: transform .2s; }
+.mcard.open .mcard-c svg.i { transform: rotate(180deg); }
+.mcard-b { display: none; margin-top: 10px; }
+.mcard.open .mcard-b { display: block; }
+.mcard { padding: 12px 14px; }
