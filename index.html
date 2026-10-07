@@ -28,10 +28,12 @@
       <div class="main-col">
         <header class="topbar">
           <div class="tb-start">
-            <span class="tb-ico" data-ico="sprout"></span>
+            <!-- RCU logo sits top-right (brand guidelines): here in RTL, in .tb-end in LTR -->
+            <img class="tb-logo rtl-only" src="assets/rcu-logo-h.png" alt="الهيئة الملكية لمحافظة العلا" width="156" height="32" />
+            <span class="tb-sep rtl-only" aria-hidden="true"></span>
             <div class="tb-title">
               <h2 id="tb-page">AlUla Expropriated Farms</h2>
-              <p><span id="tb-sub">AlUla Expropriated Farms</span><span class="tb-date" id="tb-date"></span></p>
+              <p><span id="tb-sub">AlUla Expropriated Farms</span></p>
             </div>
           </div>
           <div class="tb-end">
@@ -41,10 +43,12 @@
             <button type="button" class="icon-btn" id="print" data-ico="printer" title="طباعة" aria-label="طباعة"></button>
           </div>
             <button type="button" class="lang-btn" id="lang" aria-label="English">EN</button>
+            <span class="tb-sep ltr-only" aria-hidden="true"></span>
+            <img class="tb-logo ltr-only" src="assets/rcu-logo-h.png" alt="Royal Commission for AlUla" width="156" height="32" />
           </div>
         </header>
         <nav class="mnav" id="mnav" hidden></nav>
-        <main id="app"><p class="muted">جارٍ التحميل…</p></main>
+        <main id="app"><div class="skel-page"><div class="skel h1"></div><div class="skel-row"><div class="skel kpi"></div><div class="skel kpi"></div><div class="skel kpi"></div></div><div class="skel block"></div></div></main>
       </div>
     </div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
