@@ -911,9 +911,9 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
     PROD_STEPS.forEach(([m], k) => { if (v >= m) i = k; });
     return i;
   };
-  // clusters 1–4: approved colours from the data owner's cluster map (Released/Leased Farms by Cluster);
-  // 5–7 and COD have no approved colour there, so they take RCU palette tones
-  const CLUSTER = { 1: "#2BA5BA", 2: "#0080FF", 3: "#149414", 4: "#8014C8", 5: "#BA9863", 6: "#805E45", 7: "#D6AD68", COD: "#3D3936" };
+  // cluster colours as styled in "AlUla Expropriated Farms Master Plan V19.kmz" (style_cluster_1..7, style_tab_cod; outline #333333)
+  const CLUSTER = { 1: "#E07814", 2: "#E85DB3", 3: "#2BA0E0", 4: "#CF3F3F", 5: "#F0D417", 6: "#6EBF4F", 7: "#8F8F8F", COD: "#FF0000" };
+  const CLUSTER_LINE = "#333333";
   const CL_KEYS = ["1", "2", "3", "4", "5", "6", "7", "COD"];
   const CLUSTER_X = ["#3D3936", "#805E45", "#14332D", "#BA9863"];
   // category of a farm under each colour mode -> [key, label, colour]
@@ -990,7 +990,7 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
         const fp = l.feature.properties;
         const [k, , c0] = catOf(fp, mode);
         const c = clOn.size ? catOf(fp, "cluster")[2] : c0;
-        l.setStyle({ fillColor: c });
+        l.setStyle({ fillColor: c, color: clOn.size || mode === "cluster" ? CLUSTER_LINE : "#ffffff" });
         if (clOn.size ? !clOn.has(fp.cluster) : hidden.has(k)) farmsLayer.removeLayer(l);
         else farmsLayer.addLayer(l);
       });
