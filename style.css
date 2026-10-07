@@ -608,3 +608,6 @@ th a:hover .sarr svg { stroke: #8f877f; }
 @keyframes popin { from { transform: scale(.85) rotate(-20deg); opacity: 0; } }
 @keyframes fadeup { from { transform: translateY(8px); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .anim * { animation: none !important; } }
+/* sort headers: no heavy focus box after a mouse click, clear ring for keyboard users */
+.tbl th a { display: inline-flex; align-items: center; gap: 2px; border-radius: 4px; outline: none; }
+.tbl th a:focus-visible { box-shadow: 0 0 0 2px var(--main); }

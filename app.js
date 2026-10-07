@@ -194,18 +194,30 @@
   };
   // placeholder blocks shown while a page's data is decrypted
   const SKEL = `<div class="skel-page" aria-busy="true"><div class="skel h1"></div><div class="skel-row"><div class="skel kpi"></div><div class="skel kpi"></div><div class="skel kpi"></div></div><div class="skel block"></div></div>`;
+  let lastPath = "";
+  // columns may grow but never shrink between renders, so sorting does not make them jump
+  const COLW = {};
+  const lockCols = (table) => table?.querySelectorAll("thead th").forEach((th, i) => {
+    const key = `${lastPath}|${i}`;
+    if (COLW[key]) th.style.minWidth = `${COLW[key]}px`;
+    const w = Math.ceil(th.getBoundingClientRect().width);
+    if (w > (COLW[key] || 0)) { COLW[key] = w; th.style.minWidth = `${w}px`; }
+  });
   async function route() {
     cleanup?.();
     cleanup = null;
     const { path, params } = parse();
     const active = PAGES().find(([p]) => (p === "/" ? path === "/" : path.startsWith(p) || (p === "/farms" && path.startsWith("/farm/"))));
     document.querySelectorAll("#nav a, #mnav a").forEach((a) => a.classList.toggle("on", !!active && a.getAttribute("href") === `#${active[0]}`));
-    window.scrollTo(0, 0);
+    const samePage = path === lastPath;
+    lastPath = path;
+    const keepY = samePage ? window.scrollY : 0;
+    if (!samePage) window.scrollTo(0, 0);
     if (path !== "/" && path !== "/farms" && path !== "/review") app.innerHTML = SKEL;
     try {
       if (path === "/") dashboard(params);
       else if (path === "/map") await mapPage(params);
-      else if (path === "/farms") farmsPage(params);
+      else if (path === "/farms") { farmsPage(params); if (samePage) window.scrollTo(0, keepY); }
       else if (path.startsWith("/farm/")) await farmPage(decodeURIComponent(path.slice(6)));
       else if (path === "/wells") await wellsPage(params);
       else if (path === "/meters") await metersPage(params);
@@ -535,6 +547,7 @@
       const allOnPage = slice.length && slice.every((f) => SEL.has(f.code));
       document.getElementById("selpage").checked = !!allOnPage;
       renderSel();
+      lockCols(root.querySelector("table"));
     }
     function renderSel() {
       const inRows = rows.filter((f) => SEL.has(f.code)).length;
@@ -742,6 +755,7 @@
       const x = $("data-lx");
       if (x) x.disabled = !sel.size;
       cfg.onChange?.({ q, f: fsel });
+      lockCols(host.querySelector("table"));
     }
     const refresh = () => { compute(); page = 1; render(); };
     let tmr;
@@ -785,11 +799,8 @@
       download(`${name}-${stamp}.csv`, new Blob(["﻿" + [cols.map((c) => q(c[0])).join(","), ...data.map((r) => cols.map((c) => q(r[c[0]])).join(","))].join(nl)], { type: "text/csv;charset=utf-8" }));
       return;
     }
-    if (!window.XLSX) await loadScript("https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js");
-    const wb = window.XLSX.utils.book_new();
-    window.XLSX.utils.book_append_sheet(wb, window.XLSX.utils.json_to_sheet(data), name.slice(0, 30));
-    if (LANG === "ar") wb.Workbook = { Views: [{ RTL: true }] };
-    window.XLSX.writeFile(wb, `${name}-${stamp}.xlsx`);
+    const TITLES = { "alula-wells": L("الآبار الممسوحة", "Surveyed wells"), "alula-meters": L("عدادات الكهرباء", "Power meters") };
+    await styledBook([{ name: TITLES[name] || name, title: TITLES[name] || name, rows: data }], `${name}-${stamp}.xlsx`);
   }
   const XLS_CSV = () => [["xlsx", L("ملف Excel", "Excel workbook"), L("الصفوف المحددة", "Selected rows"), "sheet"], ["csv", "CSV", L("الصفوف المحددة", "Selected rows"), "table"]];
   const FARM_EXPORTS = () => [["xlsx", L("ملف Excel", "Excel workbook"), L("المزارع + العدادات + الآبار", "Farms + meters + wells"), "sheet"], ["csv", "CSV", L("بيانات المزارع فقط", "Farm data only"), "table"], ["kml", "KML", L("الحدود لـ Google Earth", "Boundaries for Google Earth"), "globe"], ["geojson", "GeoJSON", L("الحدود لبرامج GIS", "Boundaries for GIS"), "map"]];
@@ -820,6 +831,51 @@
     ["capex", L("التكلفة الرأسمالية (ر.س)", "CAPEX (SAR)")], ["opex", L("التشغيل السنوي (ر.س)", "OPEX/yr (SAR)")], ["rev_y3", L("إيراد السنة 3 (ر.س)", "Year-3 revenue (SAR)")],
     ["lat", L("خط العرض (المركز)", "Latitude (centre)")], ["lng", L("خط الطول (المركز)", "Longitude (centre)")],
   ];
+  // Branded workbook: title band, export date + row count, dark header row, banded rows, borders,
+  // number formats, sized columns, auto-filter, frozen header and right-to-left sheets in Arabic.
+  const XLSX_SRC = "https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js";
+  async function styledBook(sheets, fileName) {
+    if (!window.XLSX || !window.XLSX.__styled) { await loadScript(XLSX_SRC); window.XLSX.__styled = true; }
+    const X = window.XLSX;
+    const wb = X.utils.book_new();
+    const font = "Arial"; // RCU business-document font
+    const border = { top: { style: "thin", color: { rgb: "E2D9CE" } }, bottom: { style: "thin", color: { rgb: "E2D9CE" } }, left: { style: "thin", color: { rgb: "E2D9CE" } }, right: { style: "thin", color: { rgb: "E2D9CE" } } };
+    const align = { horizontal: LANG === "ar" ? "right" : "left", vertical: "center", wrapText: false };
+    const stamp = new Date().toLocaleDateString(LOCALE(), { day: "numeric", month: "long", year: "numeric" });
+    const COORD = /خط العرض|خط الطول|latitude|longitude/i; // coordinates keep 6 decimals
+    for (const { name, title, rows } of sheets) {
+      const cols = rows.length ? Object.keys(rows[0]) : ["-"];
+      const aoa = [[title], [L(`${NAME} · تاريخ التصدير: ${stamp} · عدد الصفوف: ${rows.length}`, `${NAME} · Exported ${stamp} · ${rows.length} rows`)], [], cols, ...rows.map((r) => cols.map((c) => r[c] ?? ""))];
+      const ws = X.utils.aoa_to_sheet(aoa);
+      const last = Math.max(0, cols.length - 1);
+      ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: last } }, { s: { r: 1, c: 0 }, e: { r: 1, c: last } }];
+      const set = (r, c, st) => { const a = X.utils.encode_cell({ r, c }); ws[a] = ws[a] || { t: "s", v: "" }; ws[a].s = st; };
+      for (let c = 0; c <= last; c++) {
+        set(0, c, { font: { name: font, sz: 16, bold: true, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: "3D3936" } }, alignment: { ...align, vertical: "center" } });
+        set(1, c, { font: { name: font, sz: 10, color: { rgb: "805E45" } }, fill: { fgColor: { rgb: "F8F4EF" } }, alignment: align });
+        set(3, c, { font: { name: font, sz: 11, bold: true, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: "986018" } }, alignment: { horizontal: "center", vertical: "center", wrapText: true }, border });
+      }
+      rows.forEach((r, i) => cols.forEach((c, j) => {
+        const v = r[c];
+        const isNum = typeof v === "number";
+        set(4 + i, j, {
+          font: { name: font, sz: 10, color: { rgb: "3D3936" }, bold: j === 0 },
+          fill: { fgColor: { rgb: i % 2 ? "FBF8F4" : "FFFFFF" } },
+          alignment: isNum ? { horizontal: "center", vertical: "center" } : align,
+          border,
+          numFmt: isNum ? (COORD.test(c) ? "0.000000" : Number.isInteger(v) ? "#,##0" : "#,##0.00") : undefined,
+        });
+      }));
+      ws["!cols"] = cols.map((c) => ({ wch: Math.min(48, Math.max(10, String(c).length + 2, ...rows.slice(0, 400).map((r) => String(r[c] ?? "").length + 2))) }));
+      ws["!rows"] = [{ hpt: 30 }, { hpt: 18 }, { hpt: 6 }, { hpt: 30 }];
+      ws["!autofilter"] = { ref: X.utils.encode_range({ s: { r: 3, c: 0 }, e: { r: 3 + Math.max(rows.length, 1), c: last } }) };
+      ws["!freeze"] = { xSplit: 0, ySplit: 4 };
+      X.utils.book_append_sheet(wb, ws, name.slice(0, 31));
+    }
+    wb.Workbook = { Views: [{ RTL: LANG === "ar" }] };
+    X.writeFile(wb, fileName);
+  }
+
   async function exportFarms(kind, list) {
     if (!list.length) return;
     const stamp = new Date().toISOString().slice(0, 10);
@@ -832,7 +888,6 @@
       return;
     }
     if (kind === "xlsx") {
-      if (!window.XLSX) await loadScript("https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js");
       const [meters, wells] = await Promise.all([load("meters.json"), load("wells.json")]);
       const mRows = meters.filter((m) => codes.has(m.farm_code)).map((m) => ({
         [L("رمز المزرعة", "Farm code")]: m.farm_code, [L("رقم العداد", "Meter no.")]: m.meter_no, [L("الحالة", "Status")]: t(m.status), [L("مفصول؟", "Disconnected?")]: t(m.disconnected),
@@ -842,13 +897,13 @@
         [L("رمز المزرعة", "Farm code")]: w.farm_code, [L("اسم البئر", "Well")]: w.name, [L("التصنيف", "Category")]: w.category,
         [L("خط العرض", "Latitude")]: w.lat, [L("خط الطول", "Longitude")]: w.lng, [L("أقرب عداد", "Nearest meter")]: w.nearest_meter ?? "",
       }));
-      const wb = window.XLSX.utils.book_new();
-      const add = (rows, name) => window.XLSX.utils.book_append_sheet(wb, window.XLSX.utils.json_to_sheet(rows.length ? rows : [{ "-": "" }]), name);
-      add(farmRows, L("المزارع", "Farms"));
-      add(mRows, L("العدادات", "Meters"));
-      add(wRows, L("الآبار", "Wells"));
-      if (LANG === "ar") wb.Workbook = { Views: [{ RTL: true }] };
-      window.XLSX.writeFile(wb, `alula-farms-${stamp}.xlsx`);
+      // translate coded values so the sheet reads naturally
+      const nice = farmRows.map((r) => Object.fromEntries(Object.entries(r).map(([k, v]) => [k, typeof v === "string" && v ? t(v) : v])));
+      await styledBook([
+        { name: L("المزارع", "Farms"), title: L("بيانات المزارع المنزوعة", "Expropriated farms"), rows: nice },
+        { name: L("العدادات", "Meters"), title: L("عدادات الكهرباء", "Power meters"), rows: mRows },
+        { name: L("الآبار", "Wells"), title: L("الآبار الممسوحة", "Surveyed wells"), rows: wRows },
+      ], `alula-farms-${stamp}.xlsx`);
       return;
     }
     const shapes = await load("farm-shapes.json");
