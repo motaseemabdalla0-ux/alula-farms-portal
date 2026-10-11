@@ -178,7 +178,7 @@
   const app = document.getElementById("app");
   const PAGES = () => [
     ["/", "dashboard", L("لوحة المؤشرات", "Dashboard")], ["/map", "map", L("الخريطة", "Map")], ["/farms", "sprout", L("المزارع", "Farms")],
-    ["/wells", "droplet", L("الآبار", "Wells")], ["/meters", "meter", L("العدادات", "Meters")], ["/review", "alert", L("مراجعة البيانات", "Data review")],
+    ["/wells", "droplet", L("الآبار", "Wells")], ["/meters", "meter", L("العدادات", "Meters")],
   ];
   let cleanup = null;
   function parse() {
@@ -213,7 +213,7 @@
     lastPath = path;
     const keepY = samePage ? window.scrollY : 0;
     if (!samePage) window.scrollTo(0, 0);
-    if (path !== "/" && path !== "/farms" && path !== "/review") app.innerHTML = SKEL;
+    if (path !== "/" && path !== "/farms") app.innerHTML = SKEL;
     try {
       if (path === "/") dashboard(params);
       else if (path === "/map") await mapPage(params);
@@ -221,7 +221,6 @@
       else if (path.startsWith("/farm/")) await farmPage(decodeURIComponent(path.slice(6)));
       else if (path === "/wells") await wellsPage(params);
       else if (path === "/meters") await metersPage(params);
-      else if (path === "/review") reviewPage(params);
       else app.innerHTML = `<p class="muted">${L("الصفحة غير موجودة.", "Page not found.")}</p>`;
     } catch (e) {
       app.innerHTML = `<div class="card"><b>${L("تعذّر التحميل", "Could not load")}</b><p class="muted">${esc(e.message)}</p></div>`;
@@ -995,87 +994,7 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
     return Math.abs(a) <= 90 && Math.abs(b) <= 180 ? [a, b] : null;
   }
 
-  // ------------------------------------------------------------ data review: area differences, data gaps, alerts
   const LEASED = new Set(["Full", "Partial", "Mixed"]);
-  const areaDiff = (f) => (f.calc_area_m2 != null && f.area_reg > 0 ? Math.round(((f.calc_area_m2 / 10000 - f.area_reg) / f.area_reg) * 1000) / 10 || 0 : null);
-  const GAPS = () => [
-    ["boundary", L("بدون حدود على الخريطة", "No map boundary"), (f) => f.calc_area_m2 == null],
-    ["production", L("بدون بيانات إنتاج", "No production data"), (f) => f.prod_total == null],
-    ["meters", L("بدون عداد كهرباء", "No power meter"), (f) => !f.meters_total],
-    ["wells", L("بدون آبار مسجلة", "No wells recorded"), (f) => !f.wells_total],
-    ["lease", L("حالة التأجير غير محددة", "Lease status missing"), (f) => !f.lease_status],
-    ["trees", L("عدد النخيل غير مسجل", "Palm count missing"), (f) => f.date_trees == null],
-  ];
-  const ALERTS = () => [
-    ["meter", L("مزارع مؤجرة بها عداد لا يعمل", "Leased farms with a meter not working"), (f) => LEASED.has(f.lease_status) && f.meters_not_working > 0, C.red],
-    ["well", L("مزارع مؤجرة بها آبار متوقفة", "Leased farms with inactive wells"), (f) => LEASED.has(f.lease_status) && f.wells_inactive > 0, "#805E45"],
-    ["noprod", L("مزارع مؤجرة بدون بيانات إنتاج", "Leased farms without production data"), (f) => LEASED.has(f.lease_status) && f.prod_total == null, C.gold],
-    ["area", L("فرق المساحة أكبر من 20٪", "Area difference above 20%"), (f) => Math.abs(areaDiff(f) ?? 0) > 20, "#402022"],
-  ];
-
-  function reviewPage(p) {
-    const tab = ["area", "gaps", "alerts"].includes(p.tab) ? p.tab : "alerts";
-    const F = scoped();
-    const th = [5, 10, 20, 50].includes(+p.th) ? +p.th : 10;
-    const A = ALERTS();
-    const G = GAPS();
-    const alertK = A.some((a) => a[0] === p.alert) ? p.alert : (A.find((a) => F.some(a[2])) || A[0])[0];
-    const gapK = G.some((g) => g[0] === p.gap) ? p.gap : "";
-    const chip = (on, h, l) => `<a href="${h}" class="chip ${on ? "on" : ""}">${l}</a>`;
-    const cnt = (fn) => F.filter(fn).length;
-    let list, title, extra = "";
-    if (tab === "area") {
-      list = F.filter((f) => Math.abs(areaDiff(f) ?? 0) > th).sort((a, b) => Math.abs(areaDiff(b)) - Math.abs(areaDiff(a)));
-      title = L(`المزارع التي يختلف فيها فرق المساحة بأكثر من ${th}٪`, `Farms whose area differs by more than ${th}%`);
-      extra = `<div class="chips" style="margin-bottom:12px"><span class="muted" style="align-self:center">${L("الحد الأدنى للفرق:", "Minimum difference:")}</span>${[5, 10, 20, 50].map((v) => chip(th === v, href("/review", { tab, th: v }), `${v}%`)).join("")}</div>`;
-    } else if (tab === "gaps") {
-      const sel = gapK ? G.filter((g) => g[0] === gapK) : G;
-      list = F.filter((f) => sel.some((g) => g[2](f)));
-      title = gapK ? G.find((g) => g[0] === gapK)[1] : L("كل مزرعة ينقصها بند واحد على الأقل", "Every farm missing at least one item");
-    } else {
-      const a = A.find((x) => x[0] === alertK);
-      list = F.filter(a[2]);
-      title = a[1];
-    }
-    const diffCell = (f) => { const d = areaDiff(f); return d == null ? "—" : `<b style="color:${d > 0 ? C.green : d < 0 ? C.red : "inherit"}" dir="ltr">${d > 0 ? "+" : ""}${fmt(d, 1)}%</b>`; };
-    const missing = (f) => G.filter((g) => g[2](f)).map((g) => `<span class="badge danger" style="margin:1px">${g[1]}</span>`).join("") || `<span class="muted">✓</span>`;
-    const cols = [
-      ["code", L("رمز المزرعة", "Farm code"), (f) => farmLink(f.code)],
-      ["cluster", L("العنقود", "Cluster"), (f) => (f.cluster ? esc(clName(f.cluster)) : "—")],
-      ["lease_status", L("التأجير", "Lease"), (f) => statusCell(f.lease_status)],
-      ...(tab === "area" ? [
-        ["area_reg", L("المسجلة (هـ)", "Registered (ha)"), (f) => fmt(f.area_reg, 2), null, true],
-        ["area_ha", L("المحسوبة (هـ)", "Calculated (ha)"), (f) => fmt(f.area_ha, 2), null, true],
-        ["diff", L("الفرق ٪", "Difference %"), diffCell, (f) => Math.abs(areaDiff(f) ?? 0), true],
-      ] : tab === "gaps" ? [
-        ["gaps", L("البيانات الناقصة", "Missing data"), missing, (f) => G.filter((g) => g[2](f)).length],
-      ] : [
-        ["meters_total", L("العدادات (لا تعمل)", "Meters (not working)"), (f) => `${fmt(f.meters_total)} (${fmt(f.meters_not_working)})`, (f) => f.meters_not_working, true],
-        ["wells_total", L("الآبار (متوقفة)", "Wells (inactive)"), (f) => `${fmt(f.wells_total)} (${fmt(f.wells_inactive)})`, (f) => f.wells_inactive, true],
-        ["prod_total", L("الإنتاج (طن)", "Production (t)"), (f) => fmt(f.prod_total, 2), null, true],
-        ["diff", L("فرق المساحة", "Area diff."), diffCell, (f) => Math.abs(areaDiff(f) ?? 0), true],
-      ]),
-    ];
-    app.innerHTML = `
-      ${head(L("مراجعة البيانات", "Data review"), L("التنبيهات ونواقص البيانات وفروقات المساحة للمزارع المنزوعة — انقر على أي بند لعرض مزارعه", "Alerts, data gaps and area differences for the expropriated farms — click any item to list its farms"))}
-      <div class="grid12">
-        ${card("alert", L("التنبيهات", "Alerts"), `<div class="alerts">${[...A].sort((a, b) => cnt(b[2]) - cnt(a[2])).map(([k, l, fn, c]) => `<a class="alert-i ${tab === "alerts" && k === alertK ? "on" : ""} ${cnt(fn) ? "" : "zero"}" href="${href("/review", { tab: "alerts", alert: k })}" style="--c:${c}"><b class="num">${fmt(cnt(fn))}</b><span>${l}</span></a>`).join("")}</div>`, { span: "c7", tip: L("حالات تحتاج متابعة، مثل مزارع مؤجرة بها عداد لا يعمل أو آبار متوقفة. انقر على أي بطاقة لعرض مزارعها في القائمة.", "Cases that need follow-up, such as leased farms with a broken meter or inactive wells. Click a tile to list its farms.") })}
-        ${card("info", L("نواقص البيانات", "Data gaps"), `${G.filter((g) => F.some(g[2])).map(([k, l, fn]) => `<a class="gap-i ${tab === "gaps" && k === gapK ? "on" : ""}" href="${href("/review", { tab: "gaps", gap: k })}"><span>${l}</span><b class="num ${cnt(fn) ? "t-danger" : "t-primary"}">${fmt(cnt(fn))}</b><small class="muted num">/ ${fmt(F.length)}</small></a>`).join("")}
-          <a class="link" style="display:inline-block;margin-top:8px" href="${href("/review", { tab: "gaps" })}">${L("كل المزارع التي بها نواقص", "All farms with gaps")}</a>`, { span: "c5", tip: L("بيانات لم تُسجّل للمزارع بعد. الرقم = عدد المزارع التي ينقصها هذا البند من أصل كل المزارع.", "Data not yet recorded. The number = farms missing that item out of all farms.") })}
-      </div>
-      <div class="chips" style="margin-bottom:12px">${[["alerts", L("التنبيهات", "Alerts")], ["gaps", L("نواقص البيانات", "Data gaps")], ["area", L("فروقات المساحة", "Area differences")]].map(([k, l]) => chip(tab === k, href("/review", { tab: k }), l)).join("")}</div>
-      <h2 class="sec-title">${ico("table")}${title} <span class="muted num">(${fmt(list.length)})</span></h2>
-      ${extra}
-      <div id="rl"></div>`;
-    listTool(document.getElementById("rl"), {
-      rows: list, key: (f) => f.code, placeholder: L("ابحث برمز المزرعة أو المشروع أو المنطقة", "Search farm code, project or region"),
-      text: (f) => [f.code, f.project, f.region].join(" "),
-      cols,
-      filters: [["side", L("الجهة", "Side"), (f) => f.side], ["cluster", L("العنقود", "Cluster"), (f) => f.cluster, clName], ["lease", L("حالة التأجير", "Lease status"), (f) => f.lease_status], ["region", L("المنطقة", "Region"), (f) => f.region, (v) => v]],
-      exports: FARM_EXPORTS(),
-      onExport: (kind, rs) => exportFarms(kind, rs),
-    });
-  }
 
   // ------------------------------------------------------------ map page (Agriculture Center "Main Map" layout)
   const PROD_STEPS = [[0, "#E2C6AA"], [0.5, "#D6AD68"], [2, "#BA9863"], [5, "#986018"], [10, C.green]];
