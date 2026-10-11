@@ -81,6 +81,7 @@
     North: "الشمال", South: "الجنوب", Full: "مؤجرة بالكامل", Partial: "مؤجرة جزئياً", Mixed: "مختلطة", "Not Leased": "غير مؤجرة",
     High: "عالية", Mid: "متوسطة", Medium: "متوسطة", Low: "منخفضة", Expropriated: "منزوعة", "Not Expropriated": "غير منزوعة",
     Working: "يعمل", "Not working": "لا يعمل", Yes: "نعم", No: "لا",
+    Active: "نشط", Inactive: "متوقف", "Out of Scope": "خارج النطاق", Unspecified: "غير محدد",
     // regions
     "Al Hijr": "الحجر", "Al Udhayb": "العذيب", AlUla: "العلا", Mughayra: "المغيرة", Shalal: "شلال",
     // projects
@@ -265,7 +266,8 @@
   const legend = (items) => `<div class="legend">${items.map(([l, c, hl]) => `<span${hl ? ` data-hl="${hl}"` : ""}><i style="background:${c}"></i>${l}</span>`).join("")}</div>`;
   const ring = (p, color, label) =>
     `<div class="ring"><div class="r" style="background:conic-gradient(${color} ${p * 3.6}deg, var(--track) 0)"><b class="num">${fmt(p, 1)}%</b></div><span>${label}</span></div>`;
-  function donut(items, group = "") {
+  function donut(items, group = "", unit = null) {
+    const u = unit || U.farms();
     const total = items.reduce((s, x) => s + x.value, 0) || 1;
     let acc = 0;
     const stops = items.map((x) => {
@@ -274,9 +276,9 @@
       return `${x.color} ${a}deg ${(acc / total) * 360}deg`;
     });
     const share = (x) => Math.round((x.value / total) * 100);
-    const say = (x) => L(`${fmt(x.value)} مزرعة — ${share(x)}% من ${fmt(total)} مزرعة. انقر لعرضها.`, `${fmt(x.value)} farms — ${share(x)}% of ${fmt(total)}. Click to list them.`);
+    const say = (x) => L(`${fmt(x.value)} ${u} — ${share(x)}% من ${fmt(total)}.`, `${fmt(x.value)} ${u} — ${share(x)}% of ${fmt(total)}.`);
     const slices = JSON.stringify(items.map((x) => [x.value, x.name, say(x), group ? `${group}:${x.key ?? ""}` : "", x.color]));
-    return `<div class="donut"><div class="r" data-slices="${esc(slices)}" style="background:conic-gradient(${stops.join(",")})"><b class="num">${fmt(total)}<small>${U.farms()}</small></b></div><ul>${items
+    return `<div class="donut"><div class="r" data-slices="${esc(slices)}" style="background:conic-gradient(${stops.join(",")})"><b class="num">${fmt(total)}<small>${u}</small></b></div><ul>${items
       .map((x) => `<li${tipAttrs(x.name, say(x), { hl: group ? `${group}:${x.key ?? ""}` : "" })}><span class="sw" style="background:${x.color}"></span><span>${esc(x.name)}</span><b class="num">${fmt(x.value)}</b><span class="muted num" style="width:38px;text-align:end;font-size:12px">${Math.round((x.value / total) * 100)}%</span></li>`)
       .join("")}</ul></div>`;
   }
@@ -461,9 +463,9 @@
   const tipOn = (html, title, text, extra) => html.replace(/^(\s*<[a-z0-9]+)/i, `$1${tipAttrs(title, text, extra)}`);
   const clickRow = (html, target) => (target ? html.replace('<div class="prow">', `<div class="prow clickable" data-go="${esc(target)}">`) : html);
   const ringInner = (p, color, label) => `<div class="r" style="background:conic-gradient(${color} ${p * 3.6}deg, var(--track) 0)"><b class="num">${fmt(p, 1)}%</b></div><span>${label}</span>`;
-  function donutLinks(items, target, group = "") {
+  function donutLinks(items, target, group = "", unit = null) {
     let i = 0;
-    return donut(items, group).replace(/<li /g, () => {
+    return donut(items, group, unit).replace(/<li /g, () => {
       const tg = target(items[i++]);
       return tg ? `<li class="clickable" data-go="${esc(tg)}" ` : "<li ";
     });
@@ -1570,17 +1572,32 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
     const regions = [...groupBy(F, (f) => f.region || L("غير محدد", "Not specified"))].map(([r, a]) => ({ r, a: sum(a, "wells_active"), i: sum(a, "wells_inactive") })).filter((x) => x.a + x.i).sort((x, y) => (y.a + y.i) - (x.a + x.i)).slice(0, 14);
     const regMax = Math.max(...regions.map((x) => x.a + x.i), 1);
     const W = { t: sum(F, "wells_total"), a: sum(F, "wells_active"), i: sum(F, "wells_inactive") };
-    const ofTotal = (v) => L(`${fmt(pct(v, W.t), 1)}% من الإجمالي`, `${fmt(pct(v, W.t), 1)}% of total`);
+    const ofTotal = (v) => L(`${fmt(pct(v, W.t), 0)}% من آبار السجل`, `${fmt(pct(v, W.t), 0)}% of register wells`);
+    const withWells = F.filter((f) => f.wells_total > 0).length;
+    const SCOL = { Active: C.green, Inactive: C.red, "Out of Scope": C.brown, Unspecified: NODATA };
+    const surv = cats.map(([c, n]) => ({ key: c, name: t(c), value: n, color: SCOL[c] || NODATA }));
+    const worst = [...regions].sort((a, b) => b.i - a.i)[0];
+    const sAct = wells.filter((w) => w.category === "Active").length;
     app.innerHTML = `
-      ${head(L("الآبار", "Wells"), L("أعداد الآبار لكل مزرعة من سجل آبار العلا، والآبار الجديدة الممسوحة حديثاً", "Well counts per farm from the AlUla wells register, plus newly surveyed wells"), scopePick(scope, "/wells"))}
+      ${head(L("الآبار", "Wells"), L("مصدران للبيانات: سجل آبار المزارع (عدد الآبار وحالتها لكل مزرعة)، والمسح الميداني (موقع كل بئر على الخريطة)", "Two sources: the farms wells register (well counts and status per farm) and the field survey (each well located on the map)"))}
       <div class="kpis k4">
-        ${kpi("droplet", L("إجمالي الآبار", "Total wells"), fmt(W.t), L(`${fmt(F.filter((f) => f.wells_total > 0).length)} مزرعة لديها آبار`, `${fmt(F.filter((f) => f.wells_total > 0).length)} farms with wells`), { tint: "green", cls: "t-primary" })}
-        ${kpi("trend", L("آبار نشطة", "Active wells"), fmt(W.a), ofTotal(W.a), { subCls: "t-primary" })}
-        ${kpi("off", L("آبار متوقفة", "Inactive wells"), fmt(W.i), ofTotal(W.i), { tint: "beige", cls: "t-danger" })}
-        ${kpi("pin", L("آبار جديدة ممسوحة", "Newly surveyed wells"), fmt(wells.length), L("من ملف Updated_Wells", "from Updated_Wells"))}
+        ${tipOn(kpi("droplet", L("آبار السجل", "Register wells"), fmt(W.t), L(`في ${fmt(withWells)} مزرعة من ${fmt(F.length)}`, `on ${fmt(withWells)} of ${fmt(F.length)} farms`), { tint: "green", cls: "t-primary" }), L("آبار السجل", "Register wells"), L("عدد الآبار المسجلة لكل مزرعة في سجل آبار العلا، مجموعة لكل المزارع المنزوعة.", "Wells recorded per farm in the AlUla wells register, summed over the expropriated farms."))}
+        ${tipOn(kpi("trend", L("نشطة", "Active"), fmt(W.a), ofTotal(W.a), { cls: "t-primary" }), L("آبار نشطة", "Active wells"), L("آبار السجل التي تعمل حالياً.", "Register wells currently in use."))}
+        ${tipOn(kpi("off", L("متوقفة", "Inactive"), fmt(W.i), ofTotal(W.i), { tint: "beige", cls: "t-danger" }), L("آبار متوقفة", "Inactive wells"), L("آبار السجل المتوقفة عن العمل.", "Register wells not in use."))}
+        ${tipOn(kpi("pin", L("آبار ممسوحة ميدانياً", "Field-surveyed wells"), fmt(wells.length), L(`${fmt(sAct)} نشطة · داخل المزارع أو على بعد 10 م`, `${fmt(sAct)} active · inside farms or within 10 m`)), L("المسح الميداني", "Field survey"), L("آبار حُدد موقعها بالمسح الميداني وتقع داخل حدود المزارع أو على بعد 10 أمتار منها. تظهر على الخريطة.", "Wells located by the field survey, inside a farm boundary or within 10 m. They appear on the map."))}
       </div>
-      <div class="grid12">${card("droplet", L("الآبار حسب المنطقة", "Wells by region"), regions.length ? regions.map((r) => prow(t(r.r), activeOf(r.a, r.a + r.i), [{ v: r.a, c: C.green }, { v: r.i, c: C.red }], regMax)).join("") + legend([[L("آبار نشطة", "Active wells"), C.green], [L("آبار متوقفة", "Inactive wells"), C.red]]) : `<p class="muted">${L("لا توجد آبار مسجلة لهذا النطاق.", "No wells recorded for this scope.")}</p>`)}</div>
-      <h2 class="sec-title">${ico("pin")}${L("الآبار الجديدة الممسوحة", "Newly surveyed wells")}</h2>
+      <div class="grid12">
+        ${card("droplet", L("السجل: الآبار حسب المنطقة", "Register: wells by region"), regions.length ? regions.map((r) => tipOn(clickRow(prow(t(r.r), activeOf(r.a, r.a + r.i), [{ v: r.a, c: C.green }, { v: r.i, c: C.red }], regMax), href("/farms", { region: r.r, has: "wells" })), t(r.r), L(`${fmt(r.a + r.i)} بئر: ${fmt(r.a)} نشطة و ${fmt(r.i)} متوقفة.`, `${fmt(r.a + r.i)} wells: ${fmt(r.a)} active, ${fmt(r.i)} inactive.`), { rows: [[L("نشطة", "Active"), fmt(r.a), C.green], [L("متوقفة", "Inactive"), fmt(r.i), C.red], [L("نسبة النشطة", "Active share"), `${fmt(pct(r.a, r.a + r.i), 0)}%`, ""]] })).join("") + legend([[L("نشطة", "Active"), C.green], [L("متوقفة", "Inactive"), C.red]]) : `<p class="muted">${L("لا توجد آبار مسجلة.", "No wells recorded.")}</p>`,
+          { span: "c7", insight: worst && worst.i ? L(`${t(worst.r)} فيها أكثر الآبار المتوقفة (${fmt(worst.i)} من ${fmt(worst.a + worst.i)})`, `${t(worst.r)} has the most inactive wells (${fmt(worst.i)} of ${fmt(worst.a + worst.i)})`) : "", tip: L("آبار السجل في كل منطقة: الأخضر نشط والبني متوقف. انقر على منطقة لعرض مزارعها.", "Register wells per region: green active, ochre inactive. Click a region to list its farms.") })}
+        ${card("pin", L("المسح الميداني: حالة الآبار", "Field survey: well status"), donutLinks(surv, (x) => href("/wells", { category: x.key }), "wellcat", L("بئر", "wells")) + (() => {
+            const conf = wells.filter((w) => w.confident === "Yes").length;
+            const dm = wells.map((w) => w.distance_meter_m).filter((v) => v != null);
+            const farmsN = new Set(wells.map((w) => w.farm_code).filter(Boolean)).size;
+            return `<div class="strip" style="margin-top:16px"><div${tipAttrs(L("في مزارع", "On farms"), L("عدد المزارع التي تقع فيها الآبار الممسوحة.", "Farms the surveyed wells fall in."))}><b class="num">${fmt(farmsN)}</b><span>${L("مزرعة", "farms")}</span></div><div${tipAttrs(L("مطابقة موثوقة", "Confident match"), L("نسبة الآبار التي رُبطت بمزرعتها بثقة عالية في ملف المسح.", "Share of wells matched to their farm with high confidence in the survey file."))}><b class="num">${fmt(pct(conf, wells.length), 0)}%</b><span>${L("مطابقة موثوقة", "confident match")}</span></div><div${tipAttrs(L("أقرب عداد", "Nearest meter"), L("متوسط المسافة بين البئر وأقرب عداد كهرباء.", "Average distance from a well to the nearest power meter."))}><b class="num">${fmt(dm.length ? dm.reduce((a, b) => a + b, 0) / dm.length : 0, 0)} ${L("م", "m")}</b><span>${L("متوسط البعد عن أقرب عداد", "avg. distance to a meter")}</span></div></div>`;
+          })(),
+          { span: "c5", insight: L(`${fmt(pct(sAct, wells.length), 0)}% من الآبار الممسوحة نشطة`, `${fmt(pct(sAct, wells.length), 0)}% of surveyed wells are active`), tip: L("حالة الآبار التي حُدد موقعها ميدانياً. انقر على حالة لتصفية القائمة بالأسفل.", "Status of the field-located wells. Click a status to filter the list below.") })}
+      </div>
+      <h2 class="sec-title">${ico("pin")}${L("قائمة الآبار الممسوحة ميدانياً", "Field-surveyed wells list")}</h2>
       <div id="wl"></div>`;
     const confName = (v) => (v === "Yes" ? L("نعم", "Yes") : L("لا", "No"));
     listTool(document.getElementById("wl"), {
