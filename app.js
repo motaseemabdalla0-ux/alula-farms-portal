@@ -362,12 +362,23 @@
     const top5 = top.reduce((a, f) => a + (f.prod_total || 0), 0);
     const unq = quality.find((q) => !q.key);
     const notLeased = lease.find((x) => x.key === "Not Leased");
+    // palms by variety (May-2026 survey counts) and farms per variety (survey + production files)
+    const varPalms = {}, varFarms = {};
+    for (const f of F) {
+      for (const [v, n] of Object.entries(f.var_counts || {})) varPalms[v] = (varPalms[v] || 0) + n;
+      for (const v of farmVarieties(f)) varFarms[v] = (varFarms[v] || 0) + 1;
+    }
+    const varRows = Object.keys({ ...varPalms, ...varFarms }).filter((v) => v !== "Male").sort((a, b) => (varPalms[b] || 0) - (varPalms[a] || 0) || (varFarms[b] || 0) - (varFarms[a] || 0));
+    const varTot = varRows.reduce((a, v) => a + (varPalms[v] || 0), 0);
+    const TR = { mango: sum(F, "mango_trees"), citrus: sum(F, "citrus_trees"), mangoF: F.filter((f) => f.mango_trees > 0).length, citrusF: F.filter((f) => f.citrus_trees > 0).length };
     const INS = {
       prod: L(`الجنوب ينتج ${fmt(pct(south.g1 + south.g2 + south.g3, T.prod), 0)}% من التمور بـ ${fmt(pct(south.n, prod.length), 0)}% فقط من المزارع المنتجة`, `The south grows ${fmt(pct(south.g1 + south.g2 + south.g3, T.prod), 0)}% of the dates with only ${fmt(pct(south.n, prod.length), 0)}% of producing farms`),
       ops: L(`${fmt(T.mn)} عدادات لا تعمل و ${fmt(T.wi)} بئراً متوقفة تحتاج متابعة`, `${fmt(T.mn)} meters not working and ${fmt(T.wi)} inactive wells need follow-up`),
       quality: unq ? L(`${fmt(pct(unq.value, prod.length), 0)}% من المزارع المنتجة بلا تصنيف جودة`, `${fmt(pct(unq.value, prod.length), 0)}% of producing farms have no quality grade`) : "",
       lease: notLeased ? L(`${fmt(pct(notLeased.value, F.length), 0)}% من المزارع ما زالت غير مؤجرة`, `${fmt(pct(notLeased.value, F.length), 0)}% of the farms are still not leased`) : "",
       wells: worstReg ? L(`${t(worstReg.r)} فيها أكبر عدد من الآبار المتوقفة (${fmt(worstReg.i)})`, `${t(worstReg.r)} has the most inactive wells (${fmt(worstReg.i)})`) : "",
+      vars: varRows.length ? L(`البرحي هو الصنف الغالب: ${fmt(pct(varPalms.Barni || 0, varTot), 0)}% من النخيل المصنّف حسب المسح`, `Barni dominates: ${fmt(pct(varPalms.Barni || 0, varTot), 0)}% of surveyed palms`) : "",
+      fruit: L(`${fmt(TR.citrus)} شجرة حمضيات و ${fmt(TR.mango)} شجرة مانجو موزعة على ${fmt(F.filter((f) => f.mango_trees > 0 || f.citrus_trees > 0).length)} مزرعة`, `${fmt(TR.citrus)} citrus and ${fmt(TR.mango)} mango trees across ${fmt(F.filter((f) => f.mango_trees > 0 || f.citrus_trees > 0).length)} farms`),
       top: L(`أعلى 5 مزارع تنتج ${fmt(pct(top5, T.prod), 0)}% من كل الإنتاج`, `The top 5 farms grow ${fmt(pct(top5, T.prod), 0)}% of all production`),
     };
 
@@ -376,7 +387,7 @@
       <div class="kpis k6">
         <div class="kpi green clickable" ${go("/farms", keep)} ${tipAttrs(L("عدد المزارع", "Farms"), L(`كل المزارع المنزوعة في المخطط. منها ${fmt(T.leased)} مؤجرة (كلياً أو جزئياً) و ${fmt(F.length - T.leased)} غير مؤجرة. انقر لعرض القائمة.`, `All expropriated farms in the plan: ${fmt(T.leased)} leased (fully or partly) and ${fmt(F.length - T.leased)} not leased. Click to list them.`))}><div class="kl">${chip("sprout", "ic sm")}<span>${L("عدد المزارع", "Farms")}</span></div><div class="kv t-primary">${fmt(F.length)}</div><div class="ks t-primary">${L(`${fmt(T.leased)} مؤجرة · ${fmt(F.length - T.leased)} غير مؤجرة`, `${fmt(T.leased)} leased · ${fmt(F.length - T.leased)} not`)}</div></div>
         <div class="kpi clickable" ${go("/farms", { ...keep, sort: "area_ha", dir: "desc" })} ${tipAttrs(L("المساحة الإجمالية", "Total area"), L(`مجموع مساحات المزارع محسوبة من حدودها على الخريطة. الهكتار = 10,000 م². متوسط المزرعة ${fmt(T.area / (F.length || 1), 2)} هكتار.`, `Sum of farm areas measured from their map boundaries (1 ha = 10,000 m²). Average farm: ${fmt(T.area / (F.length || 1), 2)} ha.`))}><div class="kl">${chip("ruler", "ic sm")}<span>${L("المساحة الإجمالية", "Total area")}</span></div><div class="kv">${fmt(T.area, 0)} <small>${L("هكتار", "ha")}</small></div><div class="ks">${F.length ? L(`${fmt(T.area / F.length, 2)} هكتار / مزرعة`, `${fmt(T.area / F.length, 2)} ha / farm`) : ""}</div></div>
-        <div class="kpi clickable" ${go("/farms", { ...keep, sort: "date_trees", dir: "desc" })} ${tipAttrs(L("أشجار النخيل", "Date palms"), L("عدد أشجار النخيل المسجّلة في كل المزارع، وتحته متوسط عدد النخيل في المزرعة الواحدة.", "Date palms recorded across all farms, with the average per farm below."))}><div class="kl">${chip("palm", "ic sm")}<span>${L("أشجار النخيل", "Date palms")}</span></div><div class="kv">${fmt(T.palms)}</div><div class="ks">${F.length ? L(`${fmt(T.palms / F.length)} نخلة / مزرعة`, `${fmt(T.palms / F.length)} palms / farm`) : ""}</div></div>
+        <div class="kpi clickable" ${go("/farms", { ...keep, sort: "date_trees", dir: "desc" })} ${tipAttrs(L("أشجار النخيل", "Date palms"), L("عدد أشجار النخيل المسجّلة في كل المزارع، وتحته متوسط عدد النخيل في المزرعة الواحدة.", "Date palms recorded across all farms, with the average per farm below."))}><div class="kl">${chip("palm", "ic sm")}<span>${L("أشجار النخيل", "Date palms")}</span></div><div class="kv">${fmt(T.palms)}</div><div class="ks">${L(`مانجو ${fmt(sum(F, "mango_trees"))} · حمضيات ${fmt(sum(F, "citrus_trees"))}`, `Mango ${fmt(sum(F, "mango_trees"))} · Citrus ${fmt(sum(F, "citrus_trees"))}`)}</div></div>
         <div class="kpi beige clickable" ${go("/farms", { ...keep, has: "production", sort: "prod_total", dir: "desc" })} ${tipAttrs(L("إنتاج التمور 2026", "Date production 2026"), L(`إجمالي ما أنتجته المزارع من التمور في موسم 2026 بالطن، من ${fmt(prod.length)} مزرعة لها بيانات إنتاج.`, `Total dates produced in the 2026 season, in tonnes, from ${fmt(prod.length)} farms with production data.`))}><div class="kl">${chip("box", "ic sm")}<span>${L("إنتاج التمور 2026", "Date production 2026")}</span></div><div class="kv t-brown">${fmt(T.prod, 1)} <small>${U.t()}</small></div><div class="ks">${L(`من ${fmt(prod.length)} مزرعة`, `from ${fmt(prod.length)} farms`)}</div></div>
         <div class="kpi clickable" ${go("/wells", { scope: params.scope })} ${tipAttrs(L("الآبار", "Wells"), L(`عدد الآبار في سجل آبار المزارع: ${fmt(T.wa)} نشطة تعمل الآن و ${fmt(T.wi)} متوقفة.`, `Wells in the farms register: ${fmt(T.wa)} active and ${fmt(T.wi)} inactive.`))}><div class="kl">${chip("droplet", "ic sm")}<span>${L("الآبار", "Wells")}</span></div><div class="kv">${fmt(T.wells)}</div><div class="ks ${T.wi ? "t-danger" : ""}">${L(`${fmt(T.wa)} نشطة · ${fmt(T.wi)} متوقفة`, `${fmt(T.wa)} active · ${fmt(T.wi)} inactive`)}</div></div>
         <div class="kpi clickable" ${go("/meters", {})} ${tipAttrs(L("عدادات الكهرباء", "Power meters"), L(`عدادات الكهرباء المرتبطة بالمزارع: ${fmt(T.mw)} تعمل و ${fmt(T.mn)} لا تعمل حسب الكشف الكهربائي.`, `Power meters linked to the farms: ${fmt(T.mw)} working and ${fmt(T.mn)} not working per inspection.`))}><div class="kl">${chip("meter", "ic sm")}<span>${L("عدادات الكهرباء", "Power meters")}</span></div><div class="kv">${fmt(T.meters)}</div><div class="ks t-primary">${L(`${fmt(T.mw)} تعمل · ${fmt(T.mn)} لا تعمل`, `${fmt(T.mw)} working · ${fmt(T.mn)} not working`)}</div></div>
@@ -403,6 +414,14 @@
       <div class="grid12">
         ${card("pie", L("جودة التمور", "Date quality"), donutLinks(quality, (x) => href("/farms", { ...keep, quality: x.key || "none", has: "production" }), "quality"), { span: "c6", insight: INS.quality, tip: L("توزيع المزارع المنتجة حسب جودة تمورها. «غير مصنفة» أي لم تُسجّل جودتها، وأغلبها مزارع الشمال.", "Producing farms by date quality. “Unclassified” means no quality was recorded (mostly northern farms).") })}
         ${card("layers", L("حالة التأجير", "Lease status"), donutLinks(lease, (x) => href("/farms", { ...keep, lease: x.key || "none" }), "lease"), { span: "c6", insight: INS.lease, tip: L("كم مزرعة مؤجرة وكم غير مؤجرة. «مختلطة» أي بعض قطع المزرعة مؤجرة كلياً وبعضها جزئياً.", "How many farms are leased or not. “Mixed” means some plots are fully leased and others partly.") })}
+      </div>
+      <div class="grid12">
+        ${card("palm", L("أصناف النخيل", "Palm varieties"), varRows.length ? `<div class="var-grid">` + varRows.map((v) => tipOn(clickRow(prow(varName(v), varPalms[v] ? `${fmt(varPalms[v])} ${L("نخلة", "palms")} · ${fmt(varFarms[v] || 0)} ${U.farms()}` : `${fmt(varFarms[v] || 0)} ${U.farms()}`, [{ v: varPalms[v] || 0, c: VAR_COLOR[v] || C.gold }], Math.max(...varRows.map((x) => varPalms[x] || 0), 1)), href("/farms", { variety: v })), varName(v), L(`${fmt(varPalms[v] || 0)} نخلة من هذا الصنف في مسح مايو 2026، ويظهر في ${fmt(varFarms[v] || 0)} مزرعة.`, `${fmt(varPalms[v] || 0)} palms of this variety in the May-2026 survey, found on ${fmt(varFarms[v] || 0)} farms.`))).join("") + `</div>` + (varPalms.Male ? `<p class="muted" style="font-size:12px;margin:6px 0 0">${L(`إضافة إلى ${fmt(varPalms.Male)} فحل (ذكور النخيل للتلقيح).`, `Plus ${fmt(varPalms.Male)} male palms (for pollination).`)}</p>` : "") : `<p class="muted">${L("لا توجد بيانات أصناف.", "No variety data.")}</p>`, { span: "c7", insight: INS.vars, tip: L("أعداد النخيل حسب الصنف من مسح مايو 2026 لمزارع الواحة وCOD، وعدد المزارع التي يوجد فيها كل صنف. انقر على صنف لعرض مزارعه.", "Palms per variety from the May-2026 survey (Oasis & COD farms) and how many farms grow each. Click a variety to list its farms.") })}
+        ${card("sprout", L("الأشجار المثمرة الأخرى", "Other fruit trees"), `<div class="fruit">
+            <div class="fruit-i clickable" ${go("/farms", { has: "mango", sort: "mango_trees", dir: "desc" })}${tipAttrs(L("المانجو", "Mango"), L(`${fmt(TR.mango)} شجرة مانجو في ${fmt(TR.mangoF)} مزرعة. انقر لعرضها.`, `${fmt(TR.mango)} mango trees on ${fmt(TR.mangoF)} farms. Click to list them.`))}><span class="fr-ic" style="--c:#D6AD68">🥭</span><b class="num">${fmt(TR.mango)}</b><span>${L("شجرة مانجو", "mango trees")}</span><small>${L(`في ${fmt(TR.mangoF)} مزرعة`, `on ${fmt(TR.mangoF)} farms`)}</small></div>
+            <div class="fruit-i clickable" ${go("/farms", { has: "citrus", sort: "citrus_trees", dir: "desc" })}${tipAttrs(L("الحمضيات", "Citrus"), L(`${fmt(TR.citrus)} شجرة حمضيات (ليمون وبرتقال) في ${fmt(TR.citrusF)} مزرعة. انقر لعرضها.`, `${fmt(TR.citrus)} citrus trees (lemon, orange) on ${fmt(TR.citrusF)} farms. Click to list them.`))}><span class="fr-ic" style="--c:#BA9863">🍋</span><b class="num">${fmt(TR.citrus)}</b><span>${L("شجرة حمضيات", "citrus trees")}</span><small>${L(`في ${fmt(TR.citrusF)} مزرعة`, `on ${fmt(TR.citrusF)} farms`)}</small></div>
+            <div class="fruit-i clickable" ${go("/farms", { sort: "date_trees", dir: "desc" })}${tipAttrs(L("النخيل", "Date palms"), L("كل أشجار النخيل في المزارع للمقارنة مع الأشجار الأخرى.", "All date palms, for comparison with the other trees."))}><span class="fr-ic" style="--c:#14332D">🌴</span><b class="num">${fmt(T.palms)}</b><span>${L("نخلة", "date palms")}</span><small>${L(`في ${fmt(F.filter((f) => f.date_trees > 0).length)} مزرعة`, `on ${fmt(F.filter((f) => f.date_trees > 0).length)} farms`)}</small></div>
+          </div>`, { span: "c5", insight: INS.fruit, tip: L("أعداد أشجار المانجو والحمضيات الموزعة على المزارع حسب دراسة المخطط، مع عدد النخيل للمقارنة.", "Mango and citrus trees allocated across the farms in the plan study, with palms for comparison.") })}
       </div>
       <div class="grid12">
         ${card("droplet", L("الآبار حسب المنطقة", "Wells by region"), regions.length ? regions.map((r) => tipOn(clickRow(prow(r.r ? t(r.r) : L("غير محدد", "Not specified"), activeOf(r.a, r.a + r.i), [{ v: r.a, c: C.green }, { v: r.i, c: C.red }], regMax), r.r ? href("/farms", { ...keep, region: r.r, has: "wells" }) : null), r.r ? t(r.r) : L("غير محدد", "Not specified"), L(`${fmt(r.a + r.i)} بئر: ${fmt(r.a)} نشطة (الجزء الأخضر) و ${fmt(r.i)} متوقفة (الجزء البني). انقر لعرض مزارع المنطقة.`, `${fmt(r.a + r.i)} wells: ${fmt(r.a)} active (green) and ${fmt(r.i)} inactive (ochre). Click to list the farms.`), { rows: [[L("نشطة", "Active"), fmt(r.a), C.green], [L("متوقفة", "Inactive"), fmt(r.i), C.red], [L("نسبة النشطة", "Active share"), `${fmt(pct(r.a, r.a + r.i), 0)}%`, ""]] })).join("") + legend([[L("آبار نشطة", "Active wells"), C.green], [L("آبار متوقفة", "Inactive wells"), C.red]]) : `<p class="muted">${L("لا توجد آبار مسجلة لهذا النطاق.", "No wells recorded for this scope.")}</p>`, { span: "c5", insight: INS.wells, tip: L("عدد الآبار في كل منطقة. الجزء الأخضر من الشريط آبار نشطة، والجزء البني آبار متوقفة.", "Wells per region. The green part of each bar is active wells, the ochre part inactive.") })}
@@ -454,6 +473,7 @@
   const COLS = () => [
     ["code", L("رمز المزرعة", "Farm code")], ["project", L("المشروع", "Project")], ["region", L("المنطقة", "Region")], ["side", L("الجهة", "Side")],
     ["area_ha", L("المساحة (هـ)", "Area (ha)")], ["date_trees", L("النخيل", "Palms")], ["prod_total", L("الإنتاج (طن)", "Production (t)")], ["prod_quality", L("الجودة", "Quality")],
+    ["varieties", L("أصناف النخيل", "Palm varieties")], ["mango_trees", L("المانجو", "Mango")], ["citrus_trees", L("الحمضيات", "Citrus")],
     ["wells_total", L("الآبار", "Wells")], ["meters_total", L("العدادات", "Meters")], ["lease_status", L("التأجير", "Lease")],
   ];
   // columns the viewer turned off (kept per browser); region and wells are mostly empty, so they start hidden
@@ -463,20 +483,29 @@
   // filter fields shown in the drawer: [param, farm field, label]
   const FILTERS = () => [
     ["side", "side", L("الجهة", "Side")], ["region", "region", L("المنطقة", "Region")], ["lease", "lease_status", L("حالة التأجير", "Lease status")],
-    ["cluster", "cluster", L("العنقود", "Cluster")], ["quality", "prod_quality", L("جودة التمور", "Date quality")], ["expro", "expropriation", L("حالة النزع", "Expropriation")], ["has", null, L("تحتوي على", "Has")],
+    ["cluster", "cluster", L("العنقود", "Cluster")], ["quality", "prod_quality", L("جودة التمور", "Date quality")], ["expro", "expropriation", L("حالة النزع", "Expropriation")], ["variety", "__var", L("أصناف النخيل", "Palm varieties")], ["has", null, L("تحتوي على", "Has")],
   ];
+  // palm varieties: survey counts (var_counts) + the text field "varieties" ("Barni+Helwa")
+  const VAR_AR = { Barni: "برحي", Saqi: "صقعي", Sukari: "سكري", "Hulwa Hamra": "حلوة حمراء", Helwa: "حلوة", Rotana: "روثانة", Sayer: "ساير", Khalas: "خلاص", Ajwa: "عجوة", Male: "فحول (ذكور النخيل)" };
+  const varName = (v) => (LANG === "ar" ? VAR_AR[v] || v : v === "Male" ? "Male palms" : v);
+  const VAR_COLOR = { Barni: "#986018", Saqi: "#BA9863", Sukari: "#D6AD68", "Hulwa Hamra": "#D08B67", Helwa: "#E2C6AA", Rotana: "#805E45", Sayer: "#402022", Khalas: "#14332D", Ajwa: "#3D3936", Male: "#9CA3AF" };
+  function farmVarieties(f) {
+    const set = new Set(Object.keys(f.var_counts || {}).filter((v) => v !== "Male"));
+    String(f.varieties || "").split("+").map((x) => x.trim()).filter((x) => x && !/^(n\/a|-)$/i.test(x)).forEach((x) => set.add(x));
+    return [...set];
+  }
   // cluster codes are "1".."7" and "COD"
   const clName = (v) => (/^\d+$/.test(v) ? L(`العنقود ${v}`, `Cluster ${v}`) : t(v));
-  const fLabel = (k, v) => (v === "none" ? L("غير محدد", "Not specified") : k === "cluster" ? clName(v) : t(v));
-  const HAS = () => [["map", L("حدود على الخريطة", "Map boundary")], ["production", L("بيانات إنتاج", "Production data")], ["meters", L("عدادات كهرباء", "Power meters")], ["wells", L("آبار", "Wells")]];
-  const hasTest = { map: (f) => !!f.geometry_source, production: (f) => f.prod_total != null, meters: (f) => f.meters_total > 0, wells: (f) => f.wells_total > 0 };
+  const fLabel = (k, v) => (v === "none" ? L("غير محدد", "Not specified") : k === "cluster" ? clName(v) : k === "variety" ? varName(v) : t(v));
+  const HAS = () => [["map", L("حدود على الخريطة", "Map boundary")], ["production", L("بيانات إنتاج", "Production data")], ["mango", L("أشجار مانجو", "Mango trees")], ["citrus", L("أشجار حمضيات", "Citrus trees")], ["meters", L("عدادات كهرباء", "Power meters")], ["wells", L("آبار", "Wells")]];
+  const hasTest = { mango: (f) => f.mango_trees > 0, citrus: (f) => f.citrus_trees > 0, map: (f) => !!f.geometry_source, production: (f) => f.prod_total != null, meters: (f) => f.meters_total > 0, wells: (f) => f.wells_total > 0 };
   function filterFarms(p, q = p.q) {
     const scope = "plan";
     const ql = (q || "").toLowerCase();
     const sets = Object.fromEntries(FILTERS().map(([k]) => [k, multi(p[k])]));
     let rows = scoped(scope).filter((f) =>
       (!ql || [f.code, f.region, f.project, f.plot_code, f.cluster].some((v) => v && String(v).toLowerCase().includes(ql))) &&
-      FILTERS().every(([k, field]) => !sets[k].length || (field ? sets[k].includes(f[field] ?? "") || (sets[k].includes("none") && !f[field]) : sets[k].every((h) => hasTest[h]?.(f)))) &&
+      FILTERS().every(([k, field]) => !sets[k].length || (field === "__var" ? sets[k].some((v) => farmVarieties(f).includes(v)) : field ? sets[k].includes(f[field] ?? "") || (sets[k].includes("none") && !f[field]) : sets[k].every((h) => hasTest[h]?.(f)))) &&
       (!p.deserted || f.deserted === p.deserted));
     const sort = COLS().some((c) => c[0] === p.sort) ? p.sort : scope === "plan" ? "prod_total" : "code";
     const dir = p.dir === "asc" ? 1 : p.dir === "desc" ? -1 : sort === "code" ? 1 : -1;
@@ -530,6 +559,8 @@
       if (k === "wells_total") return f.wells_total ? `${f.wells_total}${f.wells_inactive ? ` <span class="t-danger">(${f.wells_inactive} ${L("متوقفة", "inactive")})</span>` : ""}` : "—";
       if (k === "meters_total") return f.meters_total ? `${f.meters_total}${f.meters_not_working ? ` <span class="t-danger">(${f.meters_not_working} ${L("لا تعمل", "not working")})</span>` : ""}` : "—";
       if (k === "prod_total") return `<b>${fmt(f.prod_total, 2)}</b>`;
+      if (k === "varieties") return farmVarieties(f).map(varName).join("، ") || "—";
+      if (k === "mango_trees" || k === "citrus_trees") return f[k] ? fmt(f[k]) : "—";
       if (k === "area_ha") return fmt(f.area_ha, 2);
       if (k === "region") return esc(t(f.region));
       return fmt(f[k]);
@@ -616,7 +647,8 @@
       const base = scoped(scope);
       const droot = document.getElementById("drawer-root");
       const sec = ([k, field, label]) => {
-        const opts = field ? [...groupBy(base, (f) => f[field] ?? "")].filter(([v]) => v !== "").map(([v, a]) => [v, fLabel(k, v), a.length]).sort((a, b) => String(a[1]).localeCompare(String(b[1]), undefined, { numeric: true }))
+        const opts = field === "__var" ? [...groupBy(base.flatMap((f) => farmVarieties(f)), (v) => v)].map(([v, a]) => [v, varName(v), a.length]).sort((a, b) => b[2] - a[2])
+          : field ? [...groupBy(base, (f) => f[field] ?? "")].filter(([v]) => v !== "").map(([v, a]) => [v, fLabel(k, v), a.length]).sort((a, b) => String(a[1]).localeCompare(String(b[1]), undefined, { numeric: true }))
           : HAS().map(([v, l]) => [v, l, base.filter(hasTest[v]).length]);
         if (!opts.length) return "";
         const chosen = multi(p[k]);
@@ -962,7 +994,7 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
   const fmtDist = (m) => (m < 1000 ? `${fmt(m, 1)} ${L("م", "m")}` : `${fmt(m / 1000, 2)} ${L("كم", "km")}`);
   const popupRows = (rows) => `<table>${rows.map(([k, v]) => `<tr><td style="color:#6b7280;padding-inline-end:12px">${k}</td><td><b>${v}</b></td></tr>`).join("")}</table>`;
   const farmPopup = (f) => `<div dir="${DIR()}" style="min-width:220px"><a href="#/farm/${encodeURIComponent(f.code)}" title="${L("فتح ملف المزرعة", "Open farm profile")}" style="font-size:15px;font-weight:700;color:${C.green};text-decoration:underline">${esc(f.code)}</a><div style="color:#6b7280;margin-bottom:6px">${esc(t(f.project))}</div>${popupRows([
-    [L("العنقود", "Cluster"), f.cluster ? `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${CLUSTER[f.cluster] || NODATA};vertical-align:middle;margin-inline-end:4px"></span>${esc(clName(f.cluster))}` : L("خارج العناقيد", "No cluster")], [L("الجهة", "Side"), esc(t(f.side))], [L("المساحة", "Area"), `${fmt(f.area_ha, 2)} ${U.ha()}`], [L("النخيل", "Palms"), fmt(f.date_trees)], [L("الإنتاج", "Production"), `${fmt(f.prod_total, 2)} ${U.t()}`],
+    [L("العنقود", "Cluster"), f.cluster ? `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${CLUSTER[f.cluster] || NODATA};vertical-align:middle;margin-inline-end:4px"></span>${esc(clName(f.cluster))}` : L("خارج العناقيد", "No cluster")], [L("الجهة", "Side"), esc(t(f.side))], [L("المساحة", "Area"), `${fmt(f.area_ha, 2)} ${U.ha()}`], [L("النخيل", "Palms"), fmt(f.date_trees)], ...(farmVarieties(f).length ? [[L("الأصناف", "Varieties"), esc(farmVarieties(f).map(varName).join("، "))]] : []), ...(f.mango_trees ? [[L("المانجو", "Mango"), fmt(f.mango_trees)]] : []), ...(f.citrus_trees ? [[L("الحمضيات", "Citrus"), fmt(f.citrus_trees)]] : []), [L("الإنتاج", "Production"), `${fmt(f.prod_total, 2)} ${U.t()}`],
     [L("الجودة", "Quality"), esc(t(f.prod_quality))], [L("التأجير", "Lease"), esc(t(f.lease_status))], [L("الآبار", "Wells"), fmt(f.wells_total)], [L("العدادات", "Meters"), fmt(f.meters_total)],
   ])}<a href="#/farm/${encodeURIComponent(f.code)}" style="display:inline-block;margin-top:8px;font-weight:700;color:${C.green}">${L("فتح ملف المزرعة", "Open farm profile")}</a></div>`;
   const propsPopup = (title, p) => {
@@ -1009,9 +1041,11 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
   const CLUSTER_LINE = "#333333";
   const CL_KEYS = ["1", "2", "3", "4", "5", "6", "7", "COD"];
   const CLUSTER_X = ["#3D3936", "#805E45", "#14332D", "#BA9863"];
+  // lease colours on the map: bright, high-contrast on satellite imagery (green = leased, amber = not leased)
+  const MAP_LEASE = { Full: "#16A34A", Partial: "#84CC16", Mixed: "#0EA5E9", "Not Leased": "#F59E0B", "": "#9CA3AF" };
   // category of a farm under each colour mode -> [key, label, colour]
   const catOf = (f, mode) => {
-    if (mode === "lease") return f.lease_status ? [f.lease_status, t(f.lease_status), LEASE[f.lease_status] || NODATA] : ["", L("غير محدد", "Not specified"), NODATA];
+    if (mode === "lease") return f.lease_status ? [f.lease_status, t(f.lease_status), MAP_LEASE[f.lease_status] || MAP_LEASE[""]] : ["", L("غير محدد", "Not specified"), MAP_LEASE[""]];
     if (mode === "quality") return f.prod_quality ? [f.prod_quality, t(f.prod_quality), QUALITY[f.prod_quality] || NODATA] : ["", L("غير مصنفة", "Unclassified"), NODATA];
     if (mode === "cluster") return f.cluster ? [f.cluster, clName(f.cluster), CLUSTER[f.cluster] || CLUSTER_X[[...f.cluster].reduce((h, ch) => h + ch.charCodeAt(0), 0) % CLUSTER_X.length]] : ["", L("خارج العناقيد", "No cluster"), NODATA];
     if (mode === "side") return f.side ? [f.side, t(f.side), SIDE[f.side] || NODATA] : ["", L("غير محدد", "Not specified"), NODATA];
@@ -1476,6 +1510,14 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
           [L("التصنيف", "Classification"), t(f.classification)], [L("الأصناف", "Varieties"), esc(f.varieties)],
         ]), { span: "c5", tip: L("بيانات التعريف بالمزرعة من ملفات المخطط. الحقول الفارغة لا تظهر.", "Identification details from the plan files. Empty fields are hidden.") })}
       </div>
+      ${(() => {
+          const vc = f.var_counts || {};
+          const names = farmVarieties(f);
+          const mx = Math.max(...Object.values(vc), 1);
+          const body = `${Object.keys(vc).length ? Object.entries(vc).sort((a, b) => b[1] - a[1]).map(([v, n]) => prow(varName(v), `${fmt(n)} ${L("نخلة", "palms")}`, [{ v: n, c: VAR_COLOR[v] || C.gold }], mx)).join("") : names.length ? `<div class="chips">${names.map((v) => `<span class="badge">${esc(varName(v))}</span>`).join("")}</div>` : empty(L("لا توجد بيانات أصناف لهذه المزرعة.", "No variety data for this farm."))}
+            <div class="strip" style="margin-top:12px"><div><b class="num">${fmt(f.date_trees || 0)}</b><span>${L("نخلة", "palms")}</span></div><div><b class="num">${fmt(f.mango_trees || 0)}</b><span>${L("مانجو", "mango")}</span></div><div><b class="num">${fmt(f.citrus_trees || 0)}</b><span>${L("حمضيات", "citrus")}</span></div></div>`;
+          return `<div class="grid12">${card("palm", L("الأشجار والأصناف", "Trees & varieties"), body, { span: "c12", tip: L("أصناف النخيل في المزرعة (من مسح مايو 2026 أو ملف الإنتاج) وأعداد النخيل والمانجو والحمضيات.", "Palm varieties on the farm (May-2026 survey or production file) and palm, mango and citrus counts.") })}</div>`;
+      })()}
       <div class="grid12">
         ${card("trend", L("إنتاج التمور 2026", "Date production 2026"), f.prod_total ? `
           ${g.map((v, i) => prow(G[i], `${fmt(v, 2)} ${U.t()}`, [{ v, c: GRADE[i] }], f.prod_total || 1)).join("")}
