@@ -16,12 +16,12 @@
 
   // ------------------------------------------------------------ icons (lucide, MIT)
   const P = {
-    dashboard: '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>',
+    dashboard: '<rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>',
     map: '<path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"/><path d="M15 5.764v15"/><path d="M9 3.236v15"/>',
     sprout: '<path d="M7 20h10"/><path d="M10 20c5.5-2.5.8-6.4 3-10"/><path d="M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.8-.3-1.2-.6-2.3-1.9-3-4.2 2.8-.5 4.4 0 5.5.8z"/><path d="M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.3 1.7-4.6-2.7.1-4 1-4.9 2z"/>',
-    droplet: '<path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/>',
+    droplet: '<path d="M7 16.3c2.2 0 4-1.83 4-4.05 0-1.16-.57-2.26-1.71-3.19S7.29 6.75 7 5.3c-.29 1.45-1.14 2.84-2.29 3.76S3 11.1 3 12.25c0 2.22 1.8 4.05 4 4.05z"/><path d="M12.56 6.6A10.97 10.97 0 0 0 14 3.02c.5 2.5 2 4.9 4 6.5s3 3.5 3 5.5a6.98 6.98 0 0 1-11.91 4.97"/>',
     // electricity meters: lucide "plug-zap"
-    meter: '<path d="M6.3 20.3a2.4 2.4 0 0 0 3.4 0L12 18l-6-6-2.3 2.3a2.4 2.4 0 0 0 0 3.4Z"/><path d="m2 22 3-3"/><path d="M7.5 13.5 10 11"/><path d="M10.5 16.5 13 14"/><path d="m18 3-4 4h6l-4 4"/>',
+    meter: '<path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/>',
     database: '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/>',
     logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/>',
     search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
@@ -29,24 +29,28 @@
     calendar: '<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>',
     trend: '<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>',
     palm: '<path d="M13 8c0-2.76-2.46-5-5.5-5S2 5.24 2 8h2l1-1 1 1h4"/><path d="M13 7.14A5.82 5.82 0 0 1 16.5 6c3.04 0 5.5 2.24 5.5 5h-3l-1-1-1 1h-3"/><path d="M5.89 9.71c-2.15 2.15-2.3 5.47-.35 7.43l4.24-4.25.7-.7.71-.71 2.12-2.12c-1.95-1.96-5.27-1.8-7.42.35"/><path d="M11 15.5c.5 2.5-.17 4.5-1 6.5h4c2-5.5-.5-12-1-14"/>',
-    ruler: '<path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2"/><path d="m11.5 9.5 2-2"/><path d="m8.5 6.5 2-2"/><path d="m17.5 15.5 2-2"/>',
+    ruler: '<path d="M5 3a2 2 0 0 0-2 2"/><path d="M19 3a2 2 0 0 1 2 2"/><path d="M21 19a2 2 0 0 1-2 2"/><path d="M5 21a2 2 0 0 1-2-2"/><path d="M9 3h1"/><path d="M9 21h1"/><path d="M14 3h1"/><path d="M14 21h1"/><path d="M3 9v1"/><path d="M21 9v1"/><path d="M3 14v1"/><path d="M21 14v1"/>',
     box: '<path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M12 22V12"/><path d="m3.3 7 7.703 4.734a2 2 0 0 0 1.994 0L20.7 7"/>',
     pie: '<path d="M21 12c.552 0 1.005-.449.95-.998a10 10 0 0 0-8.953-8.951c-.55-.055-.998.398-.998.95v8a1 1 0 0 0 1 1z"/><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/>',
     award: '<circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/>',
     lock: '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
-    download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>',
+    download: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/>',
     pin: '<path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>',
     info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
     wallet: '<path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>',
     layers: '<path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/>',
     gauge: '<path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/>',
     arrow: '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
-    table: '<path d="M12 3v18"/><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/>',
-    filter: '<path d="M3 6h18"/><path d="M7 12h10"/><path d="M10 18h4"/>',
+    table: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="M15 3v18"/>',
+    filter: '<path d="M21 4h-7"/><path d="M10 4H3"/><path d="M21 12h-9"/><path d="M8 12H3"/><path d="M21 20h-5"/><path d="M12 20H3"/><path d="M14 2v4"/><path d="M8 10v4"/><path d="M16 18v4"/>',
     chev: '<path d="m6 9 6 6 6-6"/>',
     side: '<path d="m9 18 6-6-6-6"/>',
     citrus: '<path d="M21.66 17.67a1.08 1.08 0 0 1-.04 1.6A12 12 0 0 1 4.73 2.38a1.1 1.1 0 0 1 1.61-.04z"/><path d="M19.65 15.66A8 8 0 0 1 8.35 4.34"/><path d="m14 10-5.5 5.5"/><path d="M14 17.85V10H6.15"/>',
     mango: '<path d="M12 20.94c1.5 0 2.75 1.06 4 1.06 3 0 6-8 6-12.22A4.91 4.91 0 0 0 17 5c-2.22 0-4 1.44-5 2-1-.56-2.78-2-5-2a4.9 4.9 0 0 0-5 4.78C2 14 5 22 8 22c1.25 0 2.5-1.06 4-1.06Z"/><path d="M10 2c1 .5 2 2 2 5"/>',
+    farm: '<path d="m10 11 11 .9a1 1 0 0 1 .8 1.1l-.665 4.158a1 1 0 0 1-.988.842H20"/><path d="M16 18h-5"/><path d="M18 5a1 1 0 0 0-1 1v5.573"/><path d="M3 4h8.129a1 1 0 0 1 .99.863L13 11.246"/><path d="M4 11V4"/><path d="M7 15h.01"/><path d="M8 10.1V4"/><circle cx="18" cy="18" r="2"/><circle cx="7" cy="15" r="5"/>',
+    lease: '<path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/>',
+    xls: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M8 13h2"/><path d="M14 13h2"/><path d="M8 17h2"/><path d="M14 17h2"/>',
+    csv: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>',
     polygon: '<path d="M12 3 21 9.5 17.5 20h-11L3 9.5Z"/><circle cx="12" cy="3" r="1.5"/><circle cx="21" cy="9.5" r="1.5"/><circle cx="17.5" cy="20" r="1.5"/><circle cx="6.5" cy="20" r="1.5"/><circle cx="3" cy="9.5" r="1.5"/>',
     alert: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
     link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
@@ -180,7 +184,7 @@
   // ------------------------------------------------------------ router
   const app = document.getElementById("app");
   const PAGES = () => [
-    ["/", "dashboard", L("لوحة المؤشرات", "Dashboard")], ["/map", "map", L("الخريطة", "Map")], ["/farms", "sprout", L("المزارع", "Farms")],
+    ["/", "dashboard", L("لوحة المؤشرات", "Dashboard")], ["/map", "map", L("الخريطة", "Map")], ["/farms", "farm", L("المزارع", "Farms")],
     ["/wells", "droplet", L("الآبار", "Wells")], ["/meters", "meter", L("العدادات", "Meters")],
   ];
   let cleanup = null;
@@ -252,7 +256,7 @@
   }
   const sortIco = (state) => `<span class="sarr ${state || ""}" aria-hidden="true"><svg viewBox="0 0 16 16"><path class="up" d="M5 13V3M2.5 5.5 5 3l2.5 2.5"/><path class="dn" d="M11 3v10M8.5 10.5 11 13l2.5-2.5"/></svg></span>`;
   const ICON_TONE = {
-    sprout: "#14332D", palm: "#14332D", gauge: "#14332D", droplet: "#14332D", ruler: "#805E45", info: "#805E45", layers: "#805E45",
+    sprout: "#14332D", farm: "#14332D", lease: "#805E45", palm: "#14332D", gauge: "#14332D", droplet: "#14332D", ruler: "#805E45", info: "#805E45", layers: "#805E45",
     box: "#986018", trend: "#986018", wallet: "#986018", pie: "#BA9863", award: "#BA9863", citrus: "#D6AD68", mango: "#D08B67", meter: "#BA9863", pin: "#D08B67", alert: "#D08B67", table: "#3D3936",
   };
   const chip = (icon, cls = "ic") => `<span class="${cls}" style="--c:${ICON_TONE[icon] || "#986018"}">${ico(icon)}</span>`;
@@ -389,7 +393,7 @@
     app.innerHTML = `
       ${head(L("لوحة مؤشرات المزارع المنزوعة", "AlUla Expropriated Farms Dashboard"), L("انقر على أي رقم أو شريط لعرض المزارع التي خلفه", "Click any figure or bar to see the farms behind it"))}
       <div class="kpis k8">
-        <div class="kpi green clickable" ${go("/farms", keep)} ${tipAttrs(L("عدد المزارع", "Farms"), L(`كل المزارع المنزوعة في المخطط. منها ${fmt(T.leased)} مؤجرة (كلياً أو جزئياً) و ${fmt(F.length - T.leased)} غير مؤجرة. انقر لعرض القائمة.`, `All expropriated farms in the plan: ${fmt(T.leased)} leased (fully or partly) and ${fmt(F.length - T.leased)} not leased. Click to list them.`))}><div class="kl">${chip("sprout", "ic sm")}<span>${L("عدد المزارع", "Farms")}</span></div><div class="kv t-primary">${fmt(F.length)}</div><div class="ks t-primary">${L(`${fmt(T.leased)} مؤجرة · ${fmt(F.length - T.leased)} غير مؤجرة`, `${fmt(T.leased)} leased · ${fmt(F.length - T.leased)} not`)}</div></div>
+        <div class="kpi green clickable" ${go("/farms", keep)} ${tipAttrs(L("عدد المزارع", "Farms"), L(`كل المزارع المنزوعة في المخطط. منها ${fmt(T.leased)} مؤجرة (كلياً أو جزئياً) و ${fmt(F.length - T.leased)} غير مؤجرة. انقر لعرض القائمة.`, `All expropriated farms in the plan: ${fmt(T.leased)} leased (fully or partly) and ${fmt(F.length - T.leased)} not leased. Click to list them.`))}><div class="kl">${chip("farm", "ic sm")}<span>${L("عدد المزارع", "Farms")}</span></div><div class="kv t-primary">${fmt(F.length)}</div><div class="ks t-primary">${L(`${fmt(T.leased)} مؤجرة · ${fmt(F.length - T.leased)} غير مؤجرة`, `${fmt(T.leased)} leased · ${fmt(F.length - T.leased)} not`)}</div></div>
         <div class="kpi clickable" ${go("/farms", { ...keep, sort: "area_ha", dir: "desc" })} ${tipAttrs(L("المساحة الإجمالية", "Total area"), L(`مجموع مساحات المزارع محسوبة من حدودها على الخريطة. الهكتار = 10,000 م². متوسط المزرعة ${fmt(T.area / (F.length || 1), 2)} هكتار.`, `Sum of farm areas measured from their map boundaries (1 ha = 10,000 m²). Average farm: ${fmt(T.area / (F.length || 1), 2)} ha.`))}><div class="kl">${chip("ruler", "ic sm")}<span>${L("المساحة الإجمالية", "Total area")}</span></div><div class="kv">${fmt(T.area, 0)} <small>${L("هكتار", "ha")}</small></div><div class="ks">${F.length ? L(`${fmt(T.area / F.length, 2)} هكتار / مزرعة`, `${fmt(T.area / F.length, 2)} ha / farm`) : ""}</div></div>
         <div class="kpi beige clickable" ${go("/farms", { ...keep, has: "production", sort: "prod_total", dir: "desc" })} ${tipAttrs(L("إنتاج التمور 2026", "Date production 2026"), L(`إجمالي ما أنتجته المزارع من التمور في موسم 2026 بالطن، من ${fmt(prod.length)} مزرعة لها بيانات إنتاج.`, `Total dates produced in the 2026 season, in tonnes, from ${fmt(prod.length)} farms with production data.`))}><div class="kl">${chip("box", "ic sm")}<span>${L("إنتاج التمور 2026", "Date production 2026")}</span></div><div class="kv t-brown">${fmt(T.prod, 1)} <small>${U.t()}</small></div><div class="ks">${L(`من ${fmt(prod.length)} مزرعة`, `from ${fmt(prod.length)} farms`)}</div></div>
         <div class="kpi clickable" ${go("/wells", { scope: params.scope })} ${tipAttrs(L("الآبار", "Wells"), L(`عدد الآبار في سجل آبار المزارع: ${fmt(T.wa)} نشطة تعمل الآن و ${fmt(T.wi)} متوقفة.`, `Wells in the farms register: ${fmt(T.wa)} active and ${fmt(T.wi)} inactive.`))}><div class="kl">${chip("droplet", "ic sm")}<span>${L("الآبار", "Wells")}</span></div><div class="kv">${fmt(T.wells)}</div><div class="ks ${T.wi ? "t-danger" : ""}">${L(`${fmt(T.wa)} نشطة · ${fmt(T.wi)} متوقفة`, `${fmt(T.wa)} active · ${fmt(T.wi)} inactive`)}</div></div>
@@ -419,7 +423,7 @@
       </div>
       <div class="grid12">
         ${card("pie", L("جودة التمور", "Date quality"), donutLinks(quality, (x) => href("/farms", { ...keep, quality: x.key || "none", has: "production" }), "quality"), { span: "c6", insight: INS.quality, tip: L("توزيع المزارع المنتجة حسب جودة تمورها. «غير مصنفة» أي لم تُسجّل جودتها، وأغلبها مزارع الشمال.", "Producing farms by date quality. “Unclassified” means no quality was recorded (mostly northern farms).") })}
-        ${card("layers", L("حالة التأجير", "Lease status"), donutLinks(lease, (x) => href("/farms", { ...keep, lease: x.key || "none" }), "lease"), { span: "c6", insight: INS.lease, tip: L("كم مزرعة مؤجرة وكم غير مؤجرة. «مختلطة» أي بعض قطع المزرعة مؤجرة كلياً وبعضها جزئياً.", "How many farms are leased or not. “Mixed” means some plots are fully leased and others partly.") })}
+        ${card("lease", L("حالة التأجير", "Lease status"), donutLinks(lease, (x) => href("/farms", { ...keep, lease: x.key || "none" }), "lease"), { span: "c6", insight: INS.lease, tip: L("كم مزرعة مؤجرة وكم غير مؤجرة. «مختلطة» أي بعض قطع المزرعة مؤجرة كلياً وبعضها جزئياً.", "How many farms are leased or not. “Mixed” means some plots are fully leased and others partly.") })}
       </div>
       <div class="grid12">
         ${card("palm", L("أصناف النخيل", "Palm varieties"), varRows.length ? `<div class="var-grid">` + varRows.map((v) => tipOn(clickRow(prow(varName(v), varPalms[v] ? `${fmt(varPalms[v])} ${L("نخلة", "palms")} · ${fmt(varFarms[v] || 0)} ${U.farms()}` : `${fmt(varFarms[v] || 0)} ${U.farms()}`, [{ v: varPalms[v] || 0, c: VAR_COLOR[v] || C.gold }], Math.max(...varRows.map((x) => varPalms[x] || 0), 1)), href("/farms", { variety: v })), varName(v), L(`${fmt(varPalms[v] || 0)} نخلة من هذا الصنف في مسح مايو 2026، ويظهر في ${fmt(varFarms[v] || 0)} مزرعة.`, `${fmt(varPalms[v] || 0)} palms of this variety in the May-2026 survey, found on ${fmt(varFarms[v] || 0)} farms.`))).join("") + `</div>` + (varPalms.Male ? `<p class="muted" style="font-size:12px;margin:6px 0 0">${L(`إضافة إلى ${fmt(varPalms.Male)} فحل (ذكور النخيل للتلقيح).`, `Plus ${fmt(varPalms.Male)} male palms (for pollination).`)}</p>` : "") : `<p class="muted">${L("لا توجد بيانات أصناف.", "No variety data.")}</p>`, { span: "c7", insight: INS.vars, tip: L("أعداد النخيل حسب الصنف من مسح مايو 2026 لمزارع الواحة وCOD، وعدد المزارع التي يوجد فيها كل صنف. انقر على صنف لعرض مزارعه.", "Palms per variety from the May-2026 survey (Oasis & COD farms) and how many farms grow each. Click a variety to list its farms.") })}
@@ -639,8 +643,8 @@
         const m = document.getElementById("xmenu");
         m.hidden = !m.hidden;
         m.innerHTML = `
-          <button data-x="xlsx">${ico("sheet")}<span>${L("ملف Excel", "Excel workbook")}<small>${L("المزارع + العدادات + الآبار", "Farms + meters + wells")}</small></span></button>
-          <button data-x="csv">${ico("table")}<span>CSV<small>${L("بيانات المزارع فقط", "Farm data only")}</small></span></button>
+          <button data-x="xlsx">${ico("xls")}<span>${L("ملف Excel", "Excel workbook")}<small>${L("المزارع + العدادات + الآبار", "Farms + meters + wells")}</small></span></button>
+          <button data-x="csv">${ico("csv")}<span>CSV<small>${L("بيانات المزارع فقط", "Farm data only")}</small></span></button>
           <button data-x="kml">${ico("globe")}<span>KML<small>${L("الحدود لـ Google Earth", "Boundaries for Google Earth")}</small></span></button>
           <button data-x="geojson">${ico("map")}<span>GeoJSON<small>${L("الحدود لبرامج GIS", "Boundaries for GIS")}</small></span></button>`;
       } else if (b.dataset.x) {
@@ -839,8 +843,8 @@
     const TITLES = { "alula-wells": L("الآبار الممسوحة", "Surveyed wells"), "alula-meters": L("عدادات الكهرباء", "Power meters") };
     await styledBook([{ name: TITLES[name] || name, title: TITLES[name] || name, rows: data }], `${name}-${stamp}.xlsx`);
   }
-  const XLS_CSV = () => [["xlsx", L("ملف Excel", "Excel workbook"), L("الصفوف المحددة", "Selected rows"), "sheet"], ["csv", "CSV", L("الصفوف المحددة", "Selected rows"), "table"]];
-  const FARM_EXPORTS = () => [["xlsx", L("ملف Excel", "Excel workbook"), L("المزارع + العدادات + الآبار", "Farms + meters + wells"), "sheet"], ["csv", "CSV", L("بيانات المزارع فقط", "Farm data only"), "table"], ["kml", "KML", L("الحدود لـ Google Earth", "Boundaries for Google Earth"), "globe"], ["geojson", "GeoJSON", L("الحدود لبرامج GIS", "Boundaries for GIS"), "map"]];
+  const XLS_CSV = () => [["xlsx", L("ملف Excel", "Excel workbook"), L("الصفوف المحددة", "Selected rows"), "xls"], ["csv", "CSV", L("الصفوف المحددة", "Selected rows"), "csv"]];
+  const FARM_EXPORTS = () => [["xlsx", L("ملف Excel", "Excel workbook"), L("المزارع + العدادات + الآبار", "Farms + meters + wells"), "xls"], ["csv", "CSV", L("بيانات المزارع فقط", "Farm data only"), "csv"], ["kml", "KML", L("الحدود لـ Google Earth", "Boundaries for Google Earth"), "globe"], ["geojson", "GeoJSON", L("الحدود لبرامج GIS", "Boundaries for GIS"), "map"]];
 
   // ------------------------------------------------------------ export of selected farms
   const loadScript = (src) => new Promise((ok, bad) => {
@@ -1503,7 +1507,7 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
         ${tipOn(kpi("box", L("الإنتاج 2026", "Production 2026"), `${fmt(f.prod_total, 2)} <small>${U.t()}</small>`, f.prod_total != null && f.date_trees ? L(`${fmt((f.prod_total * 1000) / f.date_trees, 1)} كجم / نخلة`, `${fmt((f.prod_total * 1000) / f.date_trees, 1)} kg / palm`) : "", { tint: "beige", cls: "t-brown" }), L("الإنتاج 2026", "Production 2026"), L("ما أنتجته المزرعة من التمور في موسم 2026، وتحته متوسط إنتاج النخلة الواحدة.", "Dates produced in the 2026 season, with the average per palm below."))}
         ${tipOn(kpi("droplet", L("الآبار", "Wells"), fmt(f.wells_total || W.length || 0), f.wells_total ? L(`${fmt(f.wells_active)} نشطة · ${fmt(f.wells_inactive)} متوقفة`, `${fmt(f.wells_active)} active · ${fmt(f.wells_inactive)} inactive`) : W.length ? L(`آبار ممسوحة: ${fmt(W.filter((w) => w.category === "Active").length)} نشطة`, `surveyed: ${fmt(W.filter((w) => w.category === "Active").length)} active`) : L("لا آبار مسجلة", "No wells recorded"), { subCls: f.wells_inactive ? "t-danger" : "" }), L("الآبار", "Wells"), L("آبار المزرعة من سجل الآبار (النشطة والمتوقفة)، أو الآبار الممسوحة داخل حدودها إن لم يكن لها سجل.", "Wells from the register (active and inactive), or surveyed wells inside the boundary when there is no register entry."))}
         ${tipOn(kpi("meter", L("عدادات الكهرباء", "Power meters"), fmt(f.meters_total), f.meters_total ? L(`${fmt(f.meters_working)} تعمل · ${fmt(f.meters_not_working)} لا تعمل`, `${fmt(f.meters_working)} working · ${fmt(f.meters_not_working)} not working`) : "", { subCls: f.meters_not_working ? "t-danger" : "t-primary" }), L("عدادات الكهرباء", "Power meters"), L("عدادات الكهرباء المرتبطة بالمزرعة وحالتها حسب الكشف الكهربائي.", "Power meters linked to the farm and their status per inspection."))}
-        ${tipOn(kpi("layers", L("حالة التأجير", "Lease status"), f.lease_status ? `<span class="kv-badge" style="--c:${LEASE[f.lease_status] || NODATA}">${t(f.lease_status)}</span>` : "—", f.expropriation ? t(f.expropriation) : ""), L("حالة التأجير", "Lease status"), L("هل المزرعة مؤجرة: بالكامل، جزئياً، مختلطة (قطع مؤجرة كلياً وأخرى جزئياً)، أو غير مؤجرة.", "Whether the farm is leased: fully, partly, mixed (some plots fully and others partly), or not leased."))}
+        ${tipOn(kpi("lease", L("حالة التأجير", "Lease status"), f.lease_status ? `<span class="kv-badge" style="--c:${LEASE[f.lease_status] || NODATA}">${t(f.lease_status)}</span>` : "—", f.expropriation ? t(f.expropriation) : ""), L("حالة التأجير", "Lease status"), L("هل المزرعة مؤجرة: بالكامل، جزئياً، مختلطة (قطع مؤجرة كلياً وأخرى جزئياً)، أو غير مؤجرة.", "Whether the farm is leased: fully, partly, mixed (some plots fully and others partly), or not leased."))}
       </div>
       <div class="grid12">
         ${card("pin", L("الموقع والحدود", "Location & boundary"), `<div class="farmmap" id="fmap"></div>
