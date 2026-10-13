@@ -620,3 +620,7 @@ th a:hover .sarr svg { stroke: #8f877f; }
 .fruit-i span { font-size: 13px; color: var(--ink2); }
 .fruit-i small { font-size: 12px; color: var(--muted2); }
 .var-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 24px; } @media (max-width: 767px) { .var-grid { grid-template-columns: 1fr; } .fruit { grid-template-columns: 1fr 1fr 1fr; gap: 8px; } }
+.kpis.k8 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 768px) { .kpis.k8 { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.fruit-i .ic { width: 44px; height: 44px; border-radius: 12px; margin-bottom: 6px; }
+.fruit-i .ic svg.i { width: 22px; height: 22px; }
