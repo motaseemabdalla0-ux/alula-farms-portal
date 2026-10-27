@@ -624,3 +624,63 @@ th a:hover .sarr svg { stroke: #8f877f; }
 @media (min-width: 768px) { .kpis.k8 { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .fruit-i .ic { width: 44px; height: 44px; border-radius: 12px; margin-bottom: 6px; }
 .fruit-i .ic svg.i { width: 22px; height: 22px; }
+
+/* ── land-use plans: side panel ── */
+.lu-plan { border: 1px solid var(--border); border-radius: 10px; margin: 6px 0; background: #fff; transition: border-color .2s, box-shadow .2s; }
+.lu-plan.on { border-color: var(--main); box-shadow: 0 1px 0 var(--main-soft); }
+.lu-plan-h { display: flex; align-items: flex-start; gap: 10px; padding: 10px; cursor: pointer; }
+.lu-plan-t { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.lu-plan-t b { font-size: 13px; line-height: 1.45; }
+.lu-plan-t small { color: var(--muted); font-size: 11.5px; }
+.lu-sw { appearance: none; -webkit-appearance: none; width: 34px; height: 20px; border-radius: 999px; background: #d6d3cf; position: relative; flex-shrink: 0; cursor: pointer; transition: background .2s; margin-top: 2px; }
+.lu-sw::after { content: ""; position: absolute; top: 2px; inset-inline-start: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.25); transition: inset-inline-start .2s; }
+.lu-sw:checked { background: var(--main); }
+.lu-sw:checked::after { inset-inline-start: 16px; }
+.lu-sw:focus-visible { outline: 2px solid var(--main); outline-offset: 2px; }
+.lu-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; padding: 0 10px 8px; font-size: 11.5px; color: var(--muted); }
+.lu-tools input[type=range] { flex: 1; min-width: 70px; accent-color: var(--main); }
+.lu-tools button { border: 1px solid var(--border); background: #fff; color: var(--main); border-radius: 999px; padding: 2px 10px; font: inherit; font-size: 11.5px; font-weight: 600; cursor: pointer; }
+.lu-tools button:hover { border-color: var(--main); }
+.lu-cats { padding: 2px 6px 8px; border-top: 1px dashed var(--border); }
+.lu-cat { display: grid; grid-template-columns: 12px minmax(0, 1fr) 54px 38px; align-items: center; gap: 8px; padding: 4px; border-radius: 6px; font-size: 12px; cursor: pointer; user-select: none; }
+.lu-cat:hover { background: var(--panel2); }
+.lu-cat.off { opacity: .35; }
+.lu-cat.off .nm { text-decoration: line-through; }
+.lu-cat .sw { width: 12px; height: 12px; border-radius: 3px; }
+.lu-cat .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lu-cat .bar { height: 6px; background: var(--panel2); border-radius: 99px; overflow: hidden; }
+.lu-cat .bar i { display: block; height: 100%; border-radius: 99px; opacity: .85; }
+.lu-cat b { text-align: end; font-size: 11.5px; }
+
+/* ── land-use plans: plot popup ── */
+.lu-pop .leaflet-popup-content { margin: 0; width: auto !important; }
+.lu-pop .leaflet-popup-content-wrapper { padding: 0; overflow: hidden; border-radius: 12px; }
+.lup { min-width: 270px; max-width: 340px; font-size: 12.5px; }
+.lup-h { padding: 12px 14px 10px; border-top: 5px solid var(--c); background: linear-gradient(180deg, color-mix(in srgb, var(--c) 14%, #fff), #fff); display: flex; flex-direction: column; gap: 2px; }
+.lup-cat { align-self: flex-start; background: var(--c); color: #1f2937; font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 999px; margin-bottom: 4px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.08); }
+.lup-h b { font-size: 16px; color: #14332D; letter-spacing: .2px; }
+.lup-sub { color: #3D3936; font-weight: 600; }
+.lup-h small { color: #6b7280; font-size: 11px; }
+.lup-k { display: flex; gap: 1px; background: #ece8e1; border-block: 1px solid #ece8e1; }
+.lup-k div { flex: 1 1 0; min-width: 0; background: #fff; padding: 7px 8px; display: flex; flex-direction: column; gap: 1px; }
+.lup-k span { color: #6b7280; font-size: 10.5px; line-height: 1.3; }
+.lup-k b { font-size: 14px; color: #14332D; }
+.lup-k b small { font-size: 10.5px; color: #6b7280; font-weight: 500; }
+.lup-f { padding: 10px 14px 4px; display: flex; flex-direction: column; gap: 6px; }
+.lup-f > span { color: #6b7280; font-size: 11px; font-weight: 600; }
+.lup-btn { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; background: #14332D; color: #fff !important; text-decoration: none; transition: background .2s; }
+.lup-btn:hover { background: #1f4a41; }
+.lup-btn svg.i { width: 16px; height: 16px; }
+.lup-btn b { font-size: 13px; }
+.lup-btn em { margin-inline-start: auto; font-style: normal; font-size: 11.5px; opacity: .85; }
+.lup-nf { margin: 10px 14px 4px; padding: 7px 10px; border-radius: 8px; background: #f5f3ef; color: #6b7280; font-size: 11.5px; }
+.lup-d { margin: 8px 14px 12px; }
+.lup-d summary { cursor: pointer; color: var(--main); font-weight: 700; font-size: 12px; padding: 4px 0; }
+.lup-d table { width: 100%; margin-top: 4px; }
+.lup-d td { padding: 3px 0; vertical-align: top; }
+.lup-fs { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 5px; }
+.lup-fs a { display: block; text-align: center; padding: 6px 4px; border-radius: 8px; background: #14332D; color: #fff !important; font-weight: 700; font-size: 11.5px; text-decoration: none; }
+.lup-fs a:hover { background: #1f4a41; }
+.lu-tip { font: 12px Cairo, sans-serif; border-radius: 8px; padding: 6px 10px; }
+.mhint button.pri { background: var(--main); color: #fff; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; }
+.mhint button.pri svg.i { width: 14px; height: 14px; }

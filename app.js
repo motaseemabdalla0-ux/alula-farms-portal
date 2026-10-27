@@ -54,6 +54,7 @@
     polygon: '<path d="M12 3 21 9.5 17.5 20h-11L3 9.5Z"/><circle cx="12" cy="3" r="1.5"/><circle cx="21" cy="9.5" r="1.5"/><circle cx="17.5" cy="20" r="1.5"/><circle cx="6.5" cy="20" r="1.5"/><circle cx="3" cy="9.5" r="1.5"/>',
     alert: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
     link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+    select: '<path d="M12.034 12.681a.498.498 0 0 1 .647-.647l9 3.5a.5.5 0 0 1-.033.943l-3.444 1.068a1 1 0 0 0-.66.66l-1.067 3.443a.5.5 0 0 1-.943.033z"/><path d="M5 3a2 2 0 0 0-2 2"/><path d="M19 3a2 2 0 0 1 2 2"/><path d="M5 21a2 2 0 0 1-2-2"/><path d="M9 3h1"/><path d="M9 21h2"/><path d="M14 3h1"/><path d="M3 9v1"/><path d="M21 9v2"/><path d="M3 14v1"/>',
     measure: '<path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"/><path d="m7.5 10.5 2 2"/><path d="m10.5 7.5 2 2"/><path d="m13.5 13.5 2 2"/><path d="m16.5 10.5 2 2"/>',
     home: '<path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/>',
     globe: '<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>',
@@ -1066,9 +1067,45 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
   };
   const OVERLAY_COLORS = ["#402022", "#D08B67", "#14332D", "#986018", "#D6AD68", "#805E45", "#3D3936", "#BA9863", "#E2C6AA", "#6E6A66"];
 
+  // land-use plans: plots coloured by land-use level 1 (planning-map convention), names in both languages
+  const LU_CAT = {
+    "Residential": ["#F1C75B", "سكني"], "Mixed Use": ["#E08A3C", "متعدد الاستخدامات"], "Open Space": ["#6FA35A", "مساحات مفتوحة"],
+    "Agriculture": ["#B5CF7A", "زراعي"], "Commercial Services - Retail": ["#D9534F", "تجاري — تجزئة"], "Commercial Services": ["#D9534F", "خدمات تجارية"],
+    "Commercial Services - Office": ["#B03A48", "تجاري — مكاتب"], "Commercial Hospitality": ["#C2649A", "ضيافة"], "Public Utility": ["#8C8C8C", "مرافق عامة"],
+    "Religious Facilities": ["#3E8E7E", "مرافق دينية"], "Support Services": ["#8E7CC3", "خدمات مساندة"], "Education Facilities": ["#4A90C9", "مرافق تعليمية"],
+    "Environment Protection Zones": ["#2F6B3B", "مناطق حماية بيئية"], "Government Facilities": ["#2D5D8F", "مرافق حكومية"], "Healthcare Facilities": ["#E06C9F", "مرافق صحية"],
+    "Recreational Facilities": ["#9BC77F", "مرافق ترفيهية"], "Cultural Services": ["#9F86C0", "خدمات ثقافية"], "Community Facilities": ["#76A5AF", "مرافق مجتمعية"],
+    "Main Heritage Sites": ["#9A5B34", "مواقع تراثية رئيسية"], "Cemetery": ["#5F5F5F", "مقابر"], "Special Projects": ["#A0A0A0", "مشاريع خاصة"], "": ["#BDBDBD", "غير محدد"],
+  };
+  const luCat = (k) => LU_CAT[k] || ["#BDBDBD", k];
+  const luName = (k) => L(luCat(k)[1], k || "Not set");
+
+  // a one-file zip (stored, no compression): enough for a KMZ, which is a zipped doc.kml
+  const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+  function zipStore(name, data) {
+    let c = 0xffffffff;
+    for (const b of data) c = CRC[(c ^ b) & 0xff] ^ (c >>> 8);
+    const crc = (c ^ 0xffffffff) >>> 0, fn = new TextEncoder().encode(name), now = new Date();
+    const time = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1), date = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+    const head = (central) => {
+      const b = new DataView(new ArrayBuffer(central ? 46 : 30));
+      let o = 0;
+      const u32 = (v) => { b.setUint32(o, v, true); o += 4; }, u16 = (v) => { b.setUint16(o, v, true); o += 2; };
+      u32(central ? 0x02014b50 : 0x04034b50);
+      if (central) u16(20);
+      u16(20); u16(0x0800); u16(0); u16(time); u16(date); u32(crc); u32(data.length); u32(data.length); u16(fn.length); u16(0);
+      if (central) { u16(0); u16(0); u16(0); u32(0); u32(0); }
+      return new Uint8Array(b.buffer);
+    };
+    const local = head(false), cen = head(true), end = new DataView(new ArrayBuffer(22));
+    end.setUint32(0, 0x06054b50, true); end.setUint16(8, 1, true); end.setUint16(10, 1, true);
+    end.setUint32(12, cen.length + fn.length, true); end.setUint32(16, local.length + fn.length + data.length, true);
+    return new Blob([local, fn, data, cen, fn, new Uint8Array(end.buffer)], { type: "application/vnd.google-earth.kmz" });
+  }
+
   async function mapPage(p) {
     const scope = "plan";
-    const [shapes, layers, meters, wells, wpts] = await Promise.all([load("farm-shapes.json"), load("layers.json"), load("meters.json"), load("wells.json"), load("well-points.json")]);
+    const [shapes, layers, meters, wells, wpts, luPlans] = await Promise.all([load("farm-shapes.json"), load("layers.json"), load("meters.json"), load("wells.json"), load("well-points.json"), load("landuse.json").catch(() => [])]);
     let mode = p.color || "lease";
     const hidden = new Set();
     // clusters picked in the side panel: only their farms are shown, coloured by cluster
@@ -1091,7 +1128,7 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
           </div>
           <div class="mtools">
             <div class="tgroup"><button id="zin" title="${L("تكبير", "Zoom in")}">+</button><button id="zout" title="${L("تصغير", "Zoom out")}">−</button><button id="zfit" title="${L("عرض كل المزارع", "Fit all farms")}">${ico("home")}</button></div>
-            <div class="tgroup"><button id="tmeasure" title="${L("قياس المسافة بين نقطتين", "Measure distance between two points")}">${ico("measure")}</button><button id="tarea" title="${L("قياس المساحة", "Measure area")}">${ico("polygon")}</button><button id="tbase" title="${L("تبديل الخريطة الأساسية", "Switch basemap")}">${ico("globe")}</button></div>
+            <div class="tgroup"><button id="tmeasure" title="${L("قياس المسافة بين نقطتين", "Measure distance between two points")}">${ico("measure")}</button><button id="tarea" title="${L("قياس المساحة", "Measure area")}">${ico("polygon")}</button><button id="tsel" title="${L("تحديد مزارع وتصديرها KMZ", "Select farms and export KMZ")}">${ico("select")}</button><button id="tbase" title="${L("تبديل الخريطة الأساسية", "Switch basemap")}">${ico("globe")}</button></div>
           </div>
           <div class="mhint" id="mhint" hidden></div>
           <div class="mlegend" id="mlegend"></div>
@@ -1124,6 +1161,7 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
       },
     });
     const farmsLayer = L_.featureGroup().addTo(map);
+    const sel = new Set(); // farms picked for KMZ export
     function refreshFarms() {
       all.eachLayer((l) => {
         const fp = l.feature.properties;
@@ -1131,7 +1169,7 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
         const c = clOn.size ? catOf(fp, "cluster")[2] : c0;
         // zoomed out, a white outline swamps small farms (they read as white specks): outline in the fill colour instead
         const far = map.getZoom() < 14;
-        l.setStyle({ fillColor: c, color: clOn.size || mode === "cluster" ? CLUSTER_LINE : far ? c : "#ffffff", weight: far ? 2 : 1.4 });
+        l.setStyle(sel.has(fp.code) ? { fillColor: c, color: "#FFD400", weight: 4, fillOpacity: 0.9 } : { fillColor: c, color: clOn.size || mode === "cluster" ? CLUSTER_LINE : far ? c : "#ffffff", weight: far ? 2 : 1.4, fillOpacity: 0.8 });
         if (clOn.size ? !clOn.has(fp.cluster) : hidden.has(k)) farmsLayer.removeLayer(l);
         else farmsLayer.addLayer(l);
       });
@@ -1189,11 +1227,13 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
 
     // ---- side panel (summary + legend toggles, like the platform's "Main Map" panel)
     const ovOn = new Set();
+    const luOn = new Set(), luHidden = {}, luLayers = {};
+    let luOpacity = 0.55;
     const ovLayers = {};
     // each panel card: header checkbox turns the whole group on/off, the title folds the card open/closed
     const openCards = new Set(["farms"]);
     const mcard = (id, title, count, state, body) => `<div class="mcard ${openCards.has(id) ? "open" : ""}" data-card="${id}">
-      <div class="mcard-h"><input type="checkbox" data-master="${id}" data-state="${state}" ${state === "all" ? "checked" : ""} aria-label="${esc(title)}" /><button class="mcard-t" data-fold="${id}" aria-expanded="${openCards.has(id)}"${tipAttrs(title, { farms: L("المزارع ملوّنة حسب الخيار المختار أعلى الخريطة. انقر على أي فئة لإخفائها أو إظهارها.", "Farms coloured by the option chosen above the map. Click a category to hide or show it."), clusters: L("حدّد عنقوداً أو أكثر لعرض مزارعه فقط، ملوّنة بلون العنقود المعتمد.", "Tick clusters to show only their farms, in the approved cluster colours."), meters: L("أماكن عدادات الكهرباء: المربع الأخضر يعمل والبني لا يعمل.", "Power meter locations: green square working, ochre not working."), wells: L("الآبار داخل المزارع أو على بعد 10 م منها: الأخضر نشط والبني متوقف.", "Wells inside farms or within 10 m: green active, ochre inactive."), layers: L("طبقات خرائط إضافية من ملفات المشروع، تظهر فوق صورة القمر الصناعي.", "Extra map layers from the project files, drawn over the satellite image.") }[id] || "")}>${esc(title)}</button><span class="cnt num">${fmt(count)}</span><button class="mcard-c" data-fold="${id}" aria-label="${L("فتح/طي", "Expand/collapse")}">${ico("chev")}</button></div>
+      <div class="mcard-h"><input type="checkbox" data-master="${id}" data-state="${state}" ${state === "all" ? "checked" : ""} aria-label="${esc(title)}" /><button class="mcard-t" data-fold="${id}" aria-expanded="${openCards.has(id)}"${tipAttrs(title, { farms: L("المزارع ملوّنة حسب الخيار المختار أعلى الخريطة. انقر على أي فئة لإخفائها أو إظهارها.", "Farms coloured by the option chosen above the map. Click a category to hide or show it."), clusters: L("حدّد عنقوداً أو أكثر لعرض مزارعه فقط، ملوّنة بلون العنقود المعتمد.", "Tick clusters to show only their farms, in the approved cluster colours."), meters: L("أماكن عدادات الكهرباء: المربع الأخضر يعمل والبني لا يعمل.", "Power meter locations: green square working, ochre not working."), wells: L("الآبار داخل المزارع أو على بعد 10 م منها: الأخضر نشط والبني متوقف.", "Wells inside farms or within 10 m: green active, ochre inactive."), layers: L("طبقات خرائط إضافية من ملفات المشروع، تظهر فوق صورة القمر الصناعي.", "Extra map layers from the project files, drawn over the satellite image."), landuse: L("مخططات استخدام الأراضي المعتمدة: كل قطعة بلون استخدامها، ومعلوماتها عند النقر عليها.", "Approved land-use plans: each plot in its land-use colour, with its details on click.") }[id] || "")}>${esc(title)}</button><span class="cnt num">${fmt(count)}</span><button class="mcard-c" data-fold="${id}" aria-label="${L("فتح/طي", "Expand/collapse")}">${ico("chev")}</button></div>
       <div class="mcard-b">${body}</div></div>`;
     const stateOf = (on, total) => (on === 0 ? "none" : on === total ? "all" : "some");
     const WELL_KEYS = ["wellActive", "wellInactive", "wellOther", "wellReg"];
@@ -1219,7 +1259,14 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
           ${ptRow("wellOther", "well-new", L("آبار ممسوحة — خارج النطاق", "Surveyed — out of scope"), wGroups.other.getLayers().length)}
           ${ptRow("wellReg", "well", L("مواقع آبار سجل الآبار", "Wells-register locations"), wReg.getLayers().length)}`)}
         ${mcard("layers", L("طبقات إضافية", "Extra layers"), layers.length, stateOf(layers.filter((l) => ovOn.has(l.key)).length, layers.length),
-          layers.map((l, i) => `<label class="mrow" style="cursor:pointer"><input type="checkbox" data-ov="${esc(l.key)}" ${ovOn.has(l.key) ? "checked" : ""} style="accent-color:var(--main)" /><span class="dot" style="background:${OVERLAY_COLORS[i % OVERLAY_COLORS.length]}"></span><span style="flex:1">${esc(tt(l.title))}</span><small class="muted num">${fmt(l.features)}</small></label>`).join(""))}`;
+          layers.map((l, i) => `<label class="mrow" style="cursor:pointer"><input type="checkbox" data-ov="${esc(l.key)}" ${ovOn.has(l.key) ? "checked" : ""} style="accent-color:var(--main)" /><span class="dot" style="background:${OVERLAY_COLORS[i % OVERLAY_COLORS.length]}"></span><span style="flex:1">${esc(tt(l.title))}</span><small class="muted num">${fmt(l.features)}</small></label>`).join(""))}
+        ${luPlans.length ? mcard("landuse", L("مخططات استخدام الأراضي", "Land-use plans"), luPlans.reduce((n, pl) => n + pl.features, 0), stateOf(luPlans.filter((pl) => luOn.has(pl.key)).length, luPlans.length), `
+          <div class="msub">${L("فعّل المخطط لعرض قطعه ملوّنة حسب الاستخدام، وانقر على أي قطعة لعرض معلوماتها والمزرعة التي تقع فيها.", "Switch a plan on to see its plots coloured by land use; click a plot for its details and the farm it lies in.")}</div>
+          ${luPlans.map((pl) => { const on = luOn.has(pl.key), h = luHidden[pl.key] || new Set(); return `<div class="lu-plan ${on ? "on" : ""}">
+            <label class="lu-plan-h"><input type="checkbox" class="lu-sw" data-lu="${esc(pl.key)}" ${on ? "checked" : ""} /><span class="lu-plan-t"><b>${esc(tt(pl.title))}</b><small>${fmt(pl.features)} ${L("قطعة", "plots")}${pl.linked ? ` · ${fmt(pl.linked)} ${L("داخل", "inside")} ${fmt(pl.farms)} ${L("مزرعة", "farms")}` : ""}</small></span></label>
+            ${on ? `<div class="lu-tools"><span>${L("الشفافية", "Opacity")}</span><input type="range" min="15" max="90" step="5" value="${Math.round(luOpacity * 100)}" data-luop aria-label="${L("الشفافية", "Opacity")}" /><button type="button" data-luall="${esc(pl.key)}">${h.size ? L("إظهار الكل", "Show all") : L("إخفاء الكل", "Hide all")}</button><button type="button" data-lufit="${esc(pl.key)}">${L("تكبير إلى المخطط", "Zoom to plan")}</button></div>
+              <div class="lu-cats">${pl.cats.map(([k, n]) => `<div class="lu-cat ${h.has(k) ? "off" : ""}" data-lucat="${esc(pl.key)}|${esc(k)}" title="${esc(k || "")}"><span class="sw" style="background:${luCat(k)[0]}"></span><span class="nm">${esc(luName(k))}</span><span class="bar"><i style="width:${Math.max(2, (n / pl.cats[0][1]) * 100)}%;background:${luCat(k)[0]}"></i></span><b class="num">${fmt(n)}</b></div>`).join("")}</div>` : ""}
+          </div>`; }).join("")}`) : ""}`;
       document.querySelectorAll("#mside [data-master]").forEach((b) => (b.indeterminate = b.dataset.state === "some"));
     }
     renderSide();
@@ -1236,6 +1283,7 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
         <div class="mlegend-b" ${legendOpen ? "" : "hidden"}>
           <div class="mlegend-t">${L("المزارع", "Farms")} — ${esc(title)}</div>
           ${items.map(([l, c]) => `<div class="mlegend-i"><span class="sw" style="background:${c}"></span>${esc(l)}</div>`).join("")}
+          ${[...luOn].map((k) => { const pl = luPlans.find((x) => x.key === k), h = luHidden[k] || new Set(); return `<div class="mlegend-t">${esc(tt(pl.title))}</div>${pl.cats.filter(([c]) => !h.has(c)).map(([c]) => `<div class="mlegend-i"><span class="sw" style="background:${luCat(c)[0]}"></span>${esc(luName(c))}</div>`).join("")}`; }).join("")}
           ${PT.length ? `<div class="mlegend-t">${L("النقاط", "Points")}</div>${PT.map(([, kind, l]) => `<div class="mlegend-i"><span class="mk ${kind} mini">${ico(MK[kind])}</span>${l}</div>`).join("")}` : `<div class="mlegend-n">${L("فعّل الآبار والعدادات من قائمة الفلتر", "Turn on wells and meters from the filter panel")}</div>`}
         </div>`;
       document.getElementById("mlegend-h").onclick = () => { legendOpen = !legendOpen; renderLegend(); };
@@ -1249,8 +1297,19 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
       const pt = e.target.closest("[data-pt]");
       if (c) { hidden.has(c.dataset.cat) ? hidden.delete(c.dataset.cat) : hidden.add(c.dataset.cat); refreshFarms(); renderSide(); }
       if (pt) { show[pt.dataset.pt] = !show[pt.dataset.pt]; refreshPoints(); renderSide(); }
+      const la = e.target.closest("[data-luall]");
+      if (la) { const k = la.dataset.luall, pl = luPlans.find((x) => x.key === k), h = (luHidden[k] ??= new Set()); if (h.size) h.clear(); else pl.cats.forEach(([c]) => h.add(c)); luStyle(k); renderSide(); return; }
+      const lz = e.target.closest("[data-lufit]");
+      if (lz) { const b = luLayers[lz.dataset.lufit]?.getBounds(); if (b?.isValid()) map.fitBounds(b, { padding: [20, 20] }); return; }
+      const lc = e.target.closest("[data-lucat]");
+      if (lc) { const [k, ...c] = lc.dataset.lucat.split("|"), cat = c.join("|"), h = (luHidden[k] ??= new Set()); h.has(cat) ? h.delete(cat) : h.add(cat); luStyle(k); renderSide(); }
       const fold = e.target.closest("[data-fold]");
       if (fold) { const id = fold.dataset.fold; openCards.has(id) ? openCards.delete(id) : openCards.add(id); fold.closest(".mcard").classList.toggle("open"); fold.closest(".mcard").querySelector(".mcard-t").setAttribute("aria-expanded", openCards.has(id)); }
+    });
+    side.addEventListener("input", (e) => {
+      if (!e.target.matches("[data-luop]")) return;
+      luOpacity = e.target.value / 100;
+      Object.values(luLayers).forEach((l) => l.setStyle({ fillOpacity: luOpacity }));
     });
     side.addEventListener("change", async (e) => {
       const ms = e.target.dataset.master;
@@ -1261,12 +1320,14 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
         if (ms === "farms") { hidden.clear(); if (!on) feats.forEach((f) => hidden.add(catOf(f.properties, mode)[0])); refreshFarms(); renderSide(); }
         else if (ms === "clusters") { clOn.clear(); if (on) CL_KEYS.forEach((k) => feats.some((f) => f.properties.cluster === k) && clOn.add(k)); applyClusters(); }
         else if (ms === "meters" || ms === "wells") { (ms === "meters" ? ["meterOk", "meterBad"] : WELL_KEYS).forEach((k) => (show[k] = on)); refreshPoints(); renderSide(); }
+        else if (ms === "landuse") { for (const pl of luPlans) await luToggle(pl.key, on); renderSide(); }
         else if (ms === "layers") {
           for (const b of side.querySelectorAll("input[data-ov]")) if (b.checked !== on) { b.checked = on; b.dispatchEvent(new Event("change", { bubbles: true })); }
           renderSide();
         }
         return;
       }
+      if (e.target.dataset.lu) { await luToggle(e.target.dataset.lu, e.target.checked, true); return renderSide(); }
       if (e.target.dataset.cl) { e.target.checked ? clOn.add(e.target.dataset.cl) : clOn.delete(e.target.dataset.cl); return applyClusters(); }
       const key = e.target.dataset.ov;
       if (!key) return;
@@ -1285,6 +1346,49 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
       farmsLayer.bringToFront();
       syncMaster();
     });
+    function luPopup(pl, pr) {
+      const [col] = luCat(pr.lu1 || ""), shown = new Set(["plot", "lu1"]);
+      const fieldLbl = Object.fromEntries(pl.fields.map(([k, ar, en]) => [k, L(ar, en)]));
+      const val = (k) => (typeof pr[k] === "number" ? fmt(pr[k], Number.isInteger(pr[k]) ? 0 : 2) : esc(pr[k]));
+      const KPI = [["area_m2", L("م²", "m²")], ["area_ha", U.ha()], ["far", ""], ["floors", ""], ["units", ""], ["population", ""]].filter(([k]) => pr[k] !== undefined).slice(0, 4);
+      KPI.forEach(([k]) => shown.add(k));
+      const farms = pr._farms || [];
+      const rest = pl.fields.filter(([k]) => !shown.has(k) && pr[k] !== undefined && pr[k] !== "").map(([k]) => [esc(fieldLbl[k]), val(k)]);
+      return `<div dir="${DIR()}" class="lup">
+        <div class="lup-h" style="--c:${col}"><span class="lup-cat">${esc(luName(pr.lu1 || ""))}</span><b>${esc(pr.plot || pr.lu2 || "")}</b>${pr.lu2 && pr.plot ? `<span class="lup-sub">${esc(pr.lu2)}</span>` : ""}<small>${esc(tt(pl.title))}</small></div>
+        ${KPI.length ? `<div class="lup-k">${KPI.map(([k, u]) => `<div><span>${esc(fieldLbl[k])}</span><b class="num">${val(k)}${u ? ` <small>${u}</small>` : ""}</b></div>`).join("")}</div>` : ""}
+        ${farms.length === 1 ? `<div class="lup-f"><span>${L("تقع داخل المزرعة", "Lies inside farm")}</span><a href="#/farm/${encodeURIComponent(farms[0])}" class="lup-btn">${ico("farm")}<b>${esc(farms[0])}</b><em>${L("فتح ملف المزرعة", "Open farm profile")}</em></a></div>`
+          : farms.length ? `<div class="lup-f"><span>${L(`تشمل ${farms.length} مزارع — اختر مزرعة لفتح ملفها`, `Covers ${farms.length} farms — pick one to open its profile`)}</span><div class="lup-fs">${farms.map((c) => `<a href="#/farm/${encodeURIComponent(c)}">${esc(c)}</a>`).join("")}</div></div>`
+          : `<div class="lup-nf">${L("لا تقع داخل حدود أي مزرعة منزوعة", "Not inside any expropriated farm")}</div>`}
+        ${rest.length ? `<details class="lup-d"><summary>${L("كل المعلومات", "All details")} (${rest.length})</summary>${popupRows(rest)}</details>` : ""}
+      </div>`;
+    }
+    // hidden categories are left out of the layer (rebuilt on each change) so they can't be clicked either
+    const luData = {};
+    function luStyle(key) {
+      if (!luData[key]) return;
+      const h = luHidden[key] || new Set(), pl = luPlans.find((x) => x.key === key), was = luOn.has(key) && luLayers[key];
+      luLayers[key]?.remove();
+      luLayers[key] = L_.geoJSON(luData[key], {
+        filter: (f) => !h.has(f.properties.lu1 || ""),
+        style: (f) => ({ color: f.properties._farms ? "#14332D" : "#ffffff", weight: f.properties._farms ? 1.4 : 0.5, opacity: 0.9, fillColor: luCat(f.properties.lu1 || "")[0], fillOpacity: luOpacity }),
+        onEachFeature: (f, l) => {
+          // a short summary first; the farm code in it opens the farm profile
+          l.bindPopup(() => luPopup(pl, f.properties), { maxWidth: 320, minWidth: 250, className: "lu-pop" });
+          l.on("mouseover", () => l.setStyle({ weight: 3, color: "#14332D", fillOpacity: Math.min(0.9, luOpacity + 0.2) }));
+          l.on("mouseout", () => luLayers[key]?.resetStyle(l));
+        },
+      });
+      if (was) luLayers[key].addTo(map).bringToFront();
+    }
+    async function luToggle(key, on, fit) {
+      if (!on) { luOn.delete(key); luLayers[key]?.remove(); return; }
+      luOn.add(key);
+      if (!luData[key]) { luData[key] = await load(`landuse/${key}.json`); luStyle(key); }
+      // plots are drawn above the farm boundaries so a plot inside a farm can be clicked (its popup links to the farm)
+      luLayers[key].addTo(map).bringToFront();
+      if (fit && luLayers[key].getBounds().isValid()) map.fitBounds(luLayers[key].getBounds(), { padding: [20, 20] });
+    }
     // keep the "Extra layers" header checkbox in step without re-rendering (re-rendering would drop focus mid-click)
     function syncMaster() {
       const b = side.querySelector('[data-master="layers"]');
@@ -1390,6 +1494,72 @@ ${feats.map((f) => `<Placemark><name>${x(f.properties.code)}</name><styleUrl>#f<
     farmsLayer.on("click", (e) => { if (areaOn) { e.layer.closePopup(); addPt(e.latlng); } });
     // farm / meter popups must not swallow measuring clicks
     farmsLayer.on("click", (e) => { if (measuring) { e.layer.closePopup(); map.fire("click", { latlng: e.latlng }); } });
+
+    // ---- select farms and export them as KMZ (click farms to pick them; KMZ = zipped KML, built in the browser)
+    let selOn = false;
+    const selMsg = () => `${ico("select")} ${sel.size ? `<b class="num">${fmt(sel.size)}</b> ${L("مزرعة محددة", "farm(s) selected")}` : L("انقر على المزارع لتحديدها", "Click farms to select them")}
+      <button id="sall">${L("تحديد الظاهرة", "Select visible")}</button>${sel.size ? `<button id="sclear">${L("مسح", "Clear")}</button><button id="sexp" class="pri">${ico("download")} ${L("تصدير KMZ", "Export KMZ")}</button>` : ""}<button id="sclose">${L("إغلاق", "Close")}</button>`;
+    function setSel(on) {
+      if (on && measuring) setMeasure(false);
+      if (on && areaOn) setArea(false);
+      selOn = on;
+      document.getElementById("tsel").classList.toggle("on", on);
+      say(on ? selMsg() : "");
+    }
+    document.getElementById("tsel").onclick = () => setSel(!selOn);
+    // the distance / area tools take over the hint bar: leave selection mode (the picked farms stay picked)
+    const selOff = () => { if (selOn) { selOn = false; document.getElementById("tsel").classList.remove("on"); } };
+    document.getElementById("tmeasure").addEventListener("click", selOff);
+    document.getElementById("tarea").addEventListener("click", selOff);
+    farmsLayer.on("click", (e) => {
+      if (!selOn) return;
+      e.layer.closePopup();
+      const code = e.layer.feature.properties.code;
+      sel.has(code) ? sel.delete(code) : sel.add(code);
+      refreshFarms();
+      say(selMsg());
+    });
+    hint.addEventListener("click", (e) => {
+      const b = e.target.closest("button");
+      if (!b || !selOn) return;
+      if (b.id === "sclose") setSel(false);
+      if (b.id === "sclear") { sel.clear(); refreshFarms(); say(selMsg()); }
+      if (b.id === "sall") { farmsLayer.eachLayer((l) => l.feature.geometry.type !== "Point" && sel.add(l.feature.properties.code)); refreshFarms(); say(selMsg()); }
+      if (b.id === "sexp") exportKmz([...sel]);
+    });
+    function exportKmz(codes) {
+      const XE = { "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" };
+      const x = (v) => String(v ?? "").replace(/[<>&"]/g, (c) => XE[c]);
+      const ring = (r) => `<LinearRing><coordinates>${r.map(([lng, lat]) => `${lng},${lat},0`).join(" ")}</coordinates></LinearRing>`;
+      const poly = (c) => `<Polygon><outerBoundaryIs>${ring(c[0])}</outerBoundaryIs>${c.slice(1).map((h) => `<innerBoundaryIs>${ring(h)}</innerBoundaryIs>`).join("")}</Polygon>`;
+      const geom = (g) => g.type === "Polygon" ? poly(g.coordinates) : g.type === "MultiPolygon" ? `<MultiGeometry>${g.coordinates.map(poly).join("")}</MultiGeometry>` : g.type === "Point" ? `<Point><coordinates>${g.coordinates[0]},${g.coordinates[1]},0</coordinates></Point>` : "";
+      const F = [["code", "رمز المزرعة"], ["region", "المنطقة"], ["side", "الجهة"], ["cluster", "العنقود"], ["project", "المشروع"], ["plot_code", "رمز القطعة"], ["land_use", "استخدام الأرض"],
+        ["area_ha", "المساحة (هكتار)"], ["date_trees", "النخيل"], ["citrus_trees", "الحمضيات"], ["mango_trees", "المانجو"], ["prod_total", "الإنتاج (طن)"], ["prod_quality", "الجودة"],
+        ["lease_status", "حالة التأجير"], ["classification", "التصنيف"], ["wells_total", "الآبار"], ["meters_total", "العدادات"], ["lat", "خط العرض"], ["lng", "خط الطول"]];
+      const marks = codes.map((code) => {
+        const l = index.get(code);
+        if (!l) return "";
+        const f = BY_CODE.get(code) || l.feature.properties;
+        const rows = F.filter(([k]) => f[k] !== null && f[k] !== undefined && f[k] !== "");
+        return `<Placemark><name>${x(code)}</name><styleUrl>#farm</styleUrl>
+<description><![CDATA[<table dir="rtl" style="font-family:Arial;font-size:12px;border-collapse:collapse">${rows.map(([k, ar]) => `<tr><td style="color:#666;padding:2px 10px 2px 0">${ar}</td><td><b>${x(typeof f[k] === "number" ? fmt(f[k], 2) : t(f[k]))}</b></td></tr>`).join("")}</table>]]></description>
+<ExtendedData>${rows.map(([k, ar]) => `<Data name="${k}"><displayName>${x(ar)}</displayName><value>${x(f[k])}</value></Data>`).join("")}</ExtendedData>
+${geom(l.feature.geometry)}</Placemark>`;
+      }).join("\n");
+      const kml = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>${x(L("مزارع العلا المنزوعة", "AlUla expropriated farms"))} (${codes.length})</name>
+<Style id="farm"><LineStyle><color>ff00d4ff</color><width>2.5</width></LineStyle><PolyStyle><color>5500d4ff</color></PolyStyle></Style>
+${marks}
+</Document></kml>`;
+      const blob = zipStore("doc.kml", new TextEncoder().encode(kml));
+      const d = new Date(), stamp = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = codes.length === 1 ? `${codes[0]}.kmz` : `alula-farms-${codes.length}-${stamp}.kmz`;
+      document.body.append(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      return blob;
+    }
 
     // ---- search: farm code / meter number / coordinates
     const sq = document.getElementById("sq");
